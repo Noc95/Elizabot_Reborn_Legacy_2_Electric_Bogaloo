@@ -8,6 +8,9 @@ class NocPID
     
 public:
 
+    bool enabled;       // Enables / disables the PID controller
+    bool outputValid;   // True if the output value is to be trusted
+
     float kp = 1;
     float ki = 0;
     float kd = 0;
@@ -20,7 +23,7 @@ public:
     
     void calculate();
 
-    NocPID(float kp, float ki, float kd, float maxOutputAbs)
+    NocPID(float kp, float ki, float kd, float maxOutputAbs);
 
 private:
 
