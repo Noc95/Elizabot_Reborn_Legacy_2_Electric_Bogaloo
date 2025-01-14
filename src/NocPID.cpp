@@ -19,8 +19,16 @@ void NocPID::calculate()
     if (enabled == false){    // Returns if PID is disabled
       outputValid = false;
       cumError = 0;
+      P = 0;
+      I = 0;
+      D = 0;
+      lastTime = 0;
 
       return;
+    }
+
+    if (lastTime == 0) {
+      lastTime = millis();  // If PID is reset then make sure there is no big difference in delta time making a fuss
     }
     unsigned int currentTime = millis();            // possible with millis if fast frequency???
     float deltaTime = (currentTime - lastTime);      // Time difference in milliseconds
@@ -32,22 +40,24 @@ void NocPID::calculate()
     
     if (!(abs(output) >= maxOutputAbs)) {
         cumError += error * deltaTime / 1000;
-        I = kp * (1 / ki) * cumError;
+        I = ki * cumError;
     }
 
     D = kp * kd * ((input - lastInput) / deltaTime);
     
     float tempOutput = P + I + D;
-    /*
-    Serial.print(setPoint);
-    Serial.print(" P: ");
-    Serial.print(P);
-    Serial.print(" I: ");
-    Serial.print(I);
-    Serial.print(" D: ");
-    Serial.print(D);
-    Serial.print(" ");
-    */
+    
+    // Serial.print(" Delta time: ");
+    // Serial.print(deltaTime);
+    // Serial.print(setPoint);
+    // Serial.print(" P: ");
+    // Serial.print(P);
+    // Serial.print(" I: ");
+    // Serial.print(I);
+    // Serial.print(" D: ");
+    // Serial.print(D);
+    // Serial.println(" ");
+    
     lastInput = input;
     
     if (tempOutput > maxOutputAbs)
