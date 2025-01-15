@@ -22,10 +22,13 @@ float angle_kd = 0;
 float angle_maxOutputAbs = 1000;
 NocPID anglePID(angle_kp, angle_ki, angle_kd, angle_maxOutputAbs);
 
+NocMPU mpu;
+
 // sample time in amount of cycles. Calculated with: period time * cpu frequency (80 MHz)
-unsigned int sampleTime = 160000; // 500 Hz (0.002 seconds * 80000000 Hz)
-unsigned int lastSampleTime = 0;
-unsigned int currentSampleTime = 0;
+unsigned long sampleTime = 2000; // Microseconds
+// 500 Hz (0.002 seconds * 80000000 Hz)
+unsigned long lastSampleTime = 0;
+unsigned long currentSampleTime = 0;
 
 
 // ---------------------------------------------------------
@@ -40,7 +43,7 @@ void setup(void) {
   pinMode(MOTOR_2_PIN_A, OUTPUT);
   pinMode(MOTOR_2_PIN_B, OUTPUT);
 
-
+  mpu.initializeMPU();
   
   delay(100);
 }
@@ -115,38 +118,31 @@ static inline int asm_ccount(void) {
 // This is where the main robot code goes
 void elizabot() {
 
-  // Sample time calculations
+  // Sample time calculations  
+  currentSampleTime = micros();
+  if ((currentSampleTime - lastSampleTime) < sampleTime) {
+    lastSampleTime = asm_ccount();
   
-  currentSampleTime = asm_ccount();
-  // unsigned int startTime = millis();
-  while((currentSampleTime - lastSampleTime) < sampleTime) {
-    // Serial.println(currentSampleTime-lastSampleTime);
-    // Serial.print(currentSampleTime);
-    currentSampleTime = asm_ccount();
-  }
-  lastSampleTime = asm_ccount();
-  // Serial.println(millis() - startTime);
-
-  // if ((asm_ccount() - lastSampleTime) > sampleTime) {
-  //   lastSampleTime = asm_ccount();
-  // }
-
-  anglePID.enabled = true;
-
-  anglePID.setPoint = 100;
-  // if (abs(anglePID.output - anglePID.setPoint) < 1) {
-  //   anglePID.enabled = false;
     
-  // }
 
-  anglePID.input = anglePID.output;
-  anglePID.calculate();
-  // Serial.print("PID setpoint: ");
-  // Serial.print(anglePID.setPoint);
-  // Serial.print("     PID output: ");
-  // Serial.println(anglePID.output);
 
-  anglePID.enabled = true;
+    // anglePID.enabled = true;
+
+    // anglePID.setPoint = 100;
+    // if (abs(anglePID.output - anglePID.setPoint) < 1) {
+    //   anglePID.enabled = false;
+      
+    // }
+
+    // anglePID.input = anglePID.output;
+    // anglePID.calculate();
+    // Serial.print("PID setpoint: ");
+    // Serial.print(anglePID.setPoint);
+    // Serial.print("     PID output: ");
+    // Serial.println(anglePID.output);
+  
+    // anglePID.enabled = true;
+  }
 
   return;
 }
@@ -157,65 +153,26 @@ void elizabot() {
 void timeBenchmark() {
 
   int iterations = 10000;
-
-  unsigned int startTime = 0;
-  unsigned int endTime = 0;
-
-  unsigned int timeArr[iterations];
-  unsigned int meanTime = 0;
-
-  unsigned int lowestTime = 9999999;
-  unsigned int longestTime = 0;
-
   int frequency = 0;
-
-  // Serial.println("Start of benchmark!");
-  startTime = millis();
-  // unsigned int startCycle = asm_ccount();
+  unsigned int startTime = millis();
 
   for (int i = 0; i < iterations; i++) {
-    // startTime = millis();
-    // unsigned int startCycle = asm_ccount();
-    
+
     // --- Code to benchmark here ---
 
     elizabot();
-
+    // delay(1);
     // ------------------------------
-    
-    // endTime = millis();
-    // unsigned int endCycle = asm_ccount();
-    // timeArr[i] = endCycle - startCycle;
   }
-  endTime = millis();
-  // unsigned int endCycle = asm_ccount();
-
-  // Find lowest and longest times:
-  // unsigned int timeSum = 0;
-  // for (int i = 0; i < iterations; i++) {
-  //   if (timeArr[i] > longestTime) {
-  //     longestTime = timeArr[i];
-  //   }
-  //   if (timeArr[i] < lowestTime) {
-  //     lowestTime = timeArr[i];
-  //   }
-  //   timeSum += timeArr[i];
-  // }
-
-  // Calculate mean time:
-  // meanTime = int(timeSum / iterations);
-
+  unsigned int endTime = millis();
 
   // Calculate frequency:
   if (endTime - startTime == 0) {
     Serial.print("Can not divide by zero!");
   }
   else {
-    // frequency = iterations / ((endTime - startTime));
+    frequency = (float(iterations) / (float((endTime - startTime)))) * 1000.0;
   }
-  
-  //    ggr/s         ggr           milliseconds         to seconds
-
 
   // Print results:
   // Serial.print("Mean time: ");
@@ -226,12 +183,12 @@ void timeBenchmark() {
   // Serial.print(lowestTime);
   // Serial.print("  Iterations: ");
   // Serial.print(iterations);
-  // Serial.print("  Time diff: ");
-  // Serial.print(endTime - startTime);
-  // Serial.print("  Cycle diff: ");
-  // Serial.print(endCycle - startCycle);
-  // Serial.print("  Frequency: ");
-  // Serial.println(frequency);
+  Serial.print("  Start time: ");
+  Serial.print(startTime);
+  Serial.print("  End time: ");
+  Serial.print(endTime);
+  Serial.print("  Frequency: ");
+  Serial.println(frequency);
 
 }
 
@@ -241,25 +198,13 @@ void timeBenchmark() {
 void loop() {
 
   // elizabot();
-  timeBenchmark();
-
-
-
-  // sendMotorSignals(30, 0, 1);
-  // delay(100);
-  // sendMotorSignals(30, 0, -1);
-  // delay(100);
-
-  // for (int i = MIN_CONTROL_SIGNAL; i < 255; i += 5) {
-  //   sendMotorSignals(i, i, 1);
-  //   Serial.println(i);
-  //   delay(500);
-  // }
+  // timeBenchmark();
   
-  // for (int i = 255; i > MIN_CONTROL_SIGNAL; i -= 5) {
-  //   sendMotorSignals(i, i, 1);
-  //   Serial.println(i);
-  //   delay(500);
-  // }  
+  mpu.kalmanUpdate();
+  delay(2);
+
+
+
+
 
 } 

@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include "NocMPU.h"
 #include <Adafruit_MPU6050.h>
+#include <vector>
+using namespace std;
 
 
 NocMPU::NocMPU() 
@@ -22,73 +24,119 @@ void NocMPU::initializeMPU() {
     mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
     mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+
+    gravity.x = 0;
+    gravity.y = 0;
+    gravity.z = 10.0;
 }
 
-void NocMPU::calculateAngle() 
+void NocMPU::calibrateMPU() {
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  accXCalibrationValue = a.acceleration.x;
+  accYCalibrationValue = a.acceleration.y;
+  accZCalibrationValue = a.acceleration.z;
+
+  gyroXCalibrationValue = g.gyro.x;
+  gyroXCalibrationValue = g.gyro.y;
+  gyroXCalibrationValue = g.gyro.z;
+}
+
+void NocMPU::readMpuValues() {
+  // Read values from MPU
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  acc.x = a.acceleration.x;
+  acc.y = a.acceleration.y;
+  acc.z = a.acceleration.z;
+
+  gyro.x = g.gyro.x;
+  gyro.y = g.gyro.y;
+  gyro.z = g.gyro.z;
+}
+
+// Utility function: Cross product of two vectors
+NocMPU::Vector3 NocMPU::cross(const NocMPU::Vector3& a, const NocMPU::Vector3& b) {
+    return {
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+}
+
+void NocMPU::kalmanUpdate() {
+  currentTime = micros();
+  deltaTime = (lastTime - currentTime) / 1000000.0; // Delta time in seconds
+
+  readMpuValues();
+  
+  Vector3 omega = gyro * deltaTime; // Angular displacement (approx.)
+  Vector3 predictedGravity = gravity + cross(omega, gravity);                 // ??????????
+  
+  gravity.x = (gyroTrust * predictedGravity.x) + (accTrust * acc.x);
+  gravity.y = (gyroTrust * predictedGravity.y) + (accTrust * acc.y);
+  gravity.z = (gyroTrust * predictedGravity.z) + (accTrust * acc.z);
+
+  gravity.normalize();
+
+  if (gravity.x < 0) 
+    Serial.print("  Gravity x: ");
+  else
+    Serial.print("  Gravity x:  ");
+  Serial.print(gravity.x);
+  
+  if (gravity.z < 0) 
+    Serial.print("  Gravity z: ");
+  else
+    Serial.print("  Gravity z:  ");
+  Serial.println(gravity.z);
+  
+  lastTime = micros();
+}
+
+void NocMPU::calculateGravity()   // Made specifically to ca
 {
-    // TODO: Rotate vector with gyro values
-    // TODO: Test angle calculation
+  // TODO: Rotate vector with gyro values
+  // TODO: Test angle calculation
+  
 
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-
-    float Ax = a.acceleration.x;
-    float Ay = a.acceleration.y;
-    float Az = a.acceleration.z;
-
-    float Gx = g.gyro.x;
-    float Gy = g.gyro.y;
-    float Gz = g.gyro.z;
-
-    float Glen = sqrt(pow(Ax, 2) + pow(Ay, 2) + pow(Az, 2));
-
-    float rotatedX;
-    float rotatedY;
-    float rotatedZ;
-
-    float angleRadian = asin(Ay / Glen);
-
-    // Conversion from rad to angle
-    angleRadian *= 180;
-    angle = angleRadian / PI;
+  return;
 }
-
 /*
-float SteeringController::calculateZGyroBias() {
-  Serial.print("Starting calibration of gyro!");
-  int startTime = millis();
-  int elapsedTime = startTime;
-  int targetTime = 1000;
+void NocMPU::calculateSimpleAngle() {
+  
+  currentTime = micros();
+  deltaTime = lastTime - currentTime;
 
-  float lastValue = 0;
-  float measuredValue = 0;
+  readMpuValues();
 
-  while (true) {
-    //sensors_event_t a, g, temp;
-    //SteeringController::mpu.getEvent(&a, &g, &temp);
-    readMPUValues();
+  float oldGravityLength = sqrt(pow(gravityX, 2) + pow(gravityZ, 2));
+  float oldGravityAngle = acos(gravityX / oldGravityLength);
+  float newGravityAngle = oldGravityAngle + gyroY * (deltaTime / 1000000.0);
 
-    measuredValue = float(int(g.gyro.z * 100)) / 100;   // Rounding the value to two decimals
+  // Rotate old gravity vector
+  gravityX = oldGravityLength * cos(newGravityAngle);
+  gravityZ = oldGravityLength * sin(newGravityAngle);
+  
+  Serial.print("  oldGravitylength: ");
+  Serial.print(gyroY);
+  Serial.print("  gravityX: ");
+  Serial.print(gravityX);
+  Serial.print("  gravityZ: ");
+  Serial.println(gravityZ);
 
+  // float Glen = sqrt(pow(accX, 2) + pow(accZ, 2));   // Length of gravity vector
+  
+  // float angleRadian = asin(accY / Glen);
 
-    Serial.print("Measured value: ");
-    Serial.print(measuredValue);
-    Serial.print("  Elapsed time: ");
-    Serial.print(elapsedTime);
-    Serial.print("  Time Difference: ");
-    Serial.println(elapsedTime - startTime);
+  // Conversion from rad to angle
+  // angleRadian *= 180;
+  // angle = angleRadian / PI;
 
-    
-    if (measuredValue != lastValue)               // Restarting test if values change
-      startTime = elapsedTime;
-    
-    if ((elapsedTime - startTime) > targetTime)   // Return if target time is reached without interruption
-      return measuredValue;
+  lastTime = micros();
 
-    lastValue = measuredValue;
-    elapsedTime = millis();
-  }
-
-  Serial.println("Calibrated!");
+  return;
 }
 */
