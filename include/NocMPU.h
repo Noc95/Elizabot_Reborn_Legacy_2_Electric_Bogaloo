@@ -13,7 +13,11 @@ public:
     float gyroTrust = 0.95;
     float accTrust = 0.05;
 
-    float angle;    // Angle in degrees
+    float angle;
+
+    float yaw;
+    float pitch;
+    float roll;
 
     void initializeMPU();
     void calibrateMPU();
@@ -21,8 +25,7 @@ public:
     void readMpuValues();
     void kalmanUpdate();
     
-    void calculateGravity();   
-    void calculateSimpleAngle(); 
+    void calculateAngle();
 
     NocMPU();
 
@@ -81,7 +84,7 @@ private:
     float gyroYCalibrationValue = 0;
     float gyroZCalibrationValue = 0;
 
-    unsigned long deltaTime;
+    float deltaTime;
     unsigned long lastTime;     // In Microseconds
     unsigned long currentTime;  // In Microseconds
     

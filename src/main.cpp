@@ -44,6 +44,7 @@ void setup(void) {
   pinMode(MOTOR_2_PIN_B, OUTPUT);
 
   mpu.initializeMPU();
+  mpu.calibrateMPU();
   
   delay(100);
 }
@@ -201,9 +202,12 @@ void loop() {
   // timeBenchmark();
   
   mpu.kalmanUpdate();
+  mpu.calculateAngle();
+  Serial.print("  Angle: ");
+  Serial.print(mpu.angle);
   delay(2);
 
-
+  Serial.println();
 
 
 
