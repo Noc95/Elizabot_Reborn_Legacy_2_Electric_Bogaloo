@@ -10,7 +10,7 @@ class NocMPU
     
 public:
     
-    float gyroTrust = 0.95;
+    float gyroTrust = 1.0;
     float accTrust = 0.05;
 
     float angle;
@@ -59,6 +59,8 @@ public:
     };
 
     Vector3 cross(const Vector3& a, const Vector3& b);
+    Vector3 rotateVector3(const NocMPU::Vector3& a, const NocMPU::Vector3& b);
+    Vector3 multiplyMatrixVector(float matrix[3][3], Vector3 vector);
 
 private:
 
