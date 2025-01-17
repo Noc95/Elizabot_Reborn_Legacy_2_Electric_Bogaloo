@@ -3,6 +3,8 @@
 #include <Wire.h>
 #include <NocPID.h>
 #include <NocMPU.h>
+#include <ESP8266WiFi.h>
+
 
 // --------------------------------------------------------
 
@@ -30,6 +32,10 @@ unsigned long sampleTime = 2000; // Microseconds
 unsigned long lastSampleTime = 0;
 unsigned long currentSampleTime = 0;
 
+const char* ssid = "elizabot";
+const char* password = "12345678"; // Password must be at least 8 characters
+
+WiFiServer server(80); // Port 80, commonly used for HTTP/TCP communication
 
 // ---------------------------------------------------------
 
@@ -45,6 +51,17 @@ void setup(void) {
 
   mpu.initializeMPU();
   mpu.calibrateMPU();
+
+  WiFi.softAP(ssid, password);
+  Serial.println("Hotspot created.");
+  Serial.print("SSID: ");
+  Serial.println(ssid);
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.softAPIP());
+
+  // Start the server
+  server.begin();
+  Serial.println("TCP server started.");
   
   delay(100);
 }
@@ -114,6 +131,30 @@ static inline int asm_ccount(void) {
     return r;
 }
 
+String readClientMessage() {
+  
+  WiFiClient client = server.available();
+  // Serial.print(client);
+  if (client) {
+    Serial.println("Client connected.");
+    if (client.connected()) {
+      if (client.available()) {
+        String message = client.readStringUntil('\n'); // Read until newline
+        Serial.print(message);
+        Serial.println();
+        return message;
+        
+      }
+    }
+    // else {
+    //   client.stop(); // Disconnect the client
+    //   Serial.println("Client disconnected.");
+    //   return "";
+    // }
+  }
+  return "";
+}
+
 // --- Main function ------------------------------------------
 
 // This is where the main robot code goes
@@ -122,11 +163,14 @@ void elizabot() {
   // Sample time calculations  
   currentSampleTime = micros();
   if ((currentSampleTime - lastSampleTime) < sampleTime) {
-    lastSampleTime = asm_ccount();
+    lastSampleTime = micros();
   
     
-
-
+    
+    // if (message != "") {
+    //   Serial.print(message);
+    //   Serial.println();
+    // }
     // anglePID.enabled = true;
 
     // anglePID.setPoint = 100;
@@ -200,15 +244,17 @@ void loop() {
 
   // elizabot();
   // timeBenchmark();
+  String message = readClientMessage();
+  // mpu.kalmanUpdate();
+  // mpu.calculateAngle();
+  // Serial.print("  Angle: ");
+  // Serial.print(mpu.angle);
+  // delay(2);
+
   
-  mpu.kalmanUpdate();
-  mpu.calculateAngle();
-  Serial.print("  Angle: ");
-  Serial.print(mpu.angle);
-  delay(2);
 
-  Serial.println();
-
+  // Listen for incoming client connections
+  
 
 
 } 
