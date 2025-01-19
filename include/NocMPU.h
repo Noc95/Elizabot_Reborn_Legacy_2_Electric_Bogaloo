@@ -10,7 +10,7 @@ class NocMPU
     
 public:
     
-    float gyroTrust = 1.0;
+    float gyroTrust = 0.95;
     float accTrust = 0.05;
 
     float angle;

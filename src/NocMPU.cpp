@@ -27,7 +27,7 @@ void NocMPU::initializeMPU() {
 
     gravity.x = 0;
     gravity.y = 0;
-    gravity.z = 10.0;
+    gravity.z = 1.0;
 
     delay(3);
 }
@@ -62,8 +62,8 @@ void NocMPU::calibrateMPU() {
   // accZCalibrationValue = a.acceleration.z;
 
   gyroXCalibrationValue = -g.gyro.x;
-  gyroXCalibrationValue = -g.gyro.y;
-  gyroXCalibrationValue = -g.gyro.z;
+  gyroYCalibrationValue = -g.gyro.y;
+  gyroZCalibrationValue = -g.gyro.z;
 
 }
 
@@ -76,25 +76,25 @@ void NocMPU::readMpuValues() {
   acc.y = a.acceleration.y - accYCalibrationValue;
   acc.z = a.acceleration.z - accZCalibrationValue;
 
-  gyro.x = -g.gyro.x - gyroXCalibrationValue;
-  gyro.y = -g.gyro.y - gyroYCalibrationValue;
-  gyro.z = -g.gyro.z - gyroZCalibrationValue;
-
-  if (acc.x < 0)
-    Serial.print("  Acc x: ");
-  else
-    Serial.print("  Acc x:  ");
-  Serial.print(a.acceleration.x);
-  if (acc.y < 0)
-    Serial.print("  Acc y: ");
-  else
-    Serial.print("  Acc y:  ");
-  Serial.print(a.acceleration.y);
-  if (acc.z < 0)
-    Serial.print("  Acc z: ");
-  else
-    Serial.print("  Acc z:  ");
-  Serial.print(a.acceleration.z);
+  gyro.x = (-g.gyro.x - gyroXCalibrationValue);// * 500.0 / 32768.0;
+  gyro.y = (-g.gyro.y - gyroYCalibrationValue);// * 500.0 / 32768.0;
+  gyro.z = (-g.gyro.z - gyroZCalibrationValue);// * 500.0 / 32768.0;
+  
+  // if (acc.x < 0)
+  //   Serial.print("  Acc x: ");
+  // else
+  //   Serial.print("  Acc x:  ");
+  // Serial.print(a.acceleration.x);
+  // if (acc.y < 0)
+  //   Serial.print("  Acc y: ");
+  // else
+  //   Serial.print("  Acc y:  ");
+  // Serial.print(a.acceleration.y);
+  // if (acc.z < 0)
+  //   Serial.print("  Acc z: ");
+  // else
+  //   Serial.print("  Acc z:  ");
+  // Serial.print(a.acceleration.z);
 
   // if (gyro.x < 0)
   //   Serial.print("  Gyro x: ");
@@ -138,43 +138,43 @@ NocMPU::Vector3 NocMPU::multiplyMatrixVector(float matrix[3][3], NocMPU::Vector3
 // Utility function: Cross product of two vectors
 NocMPU::Vector3 NocMPU::rotateVector3(const NocMPU::Vector3& vector, const NocMPU::Vector3& rotationVector) {
 
-  // Vector3 rotatedVector = vector;
-  Vector3 rotatedVector = {0, 1, 0};
-  Vector3 debugRotationVector = {PI/2, 0, 0};
+  Vector3 rotatedVector = vector;
+  // Vector3 rotatedVector = {0, 0, 1};
+  // Vector3 debugRotationVector = {0, PI/2, 0};
 
-  float theta = debugRotationVector.x;
+  float theta = rotationVector.x;
   float rotationMatrixX[3][3] = {
-      {1, 0, 0},
-      {0, 1, -theta},  // Approximation: cos(theta) ≈ 1, sin(theta) ≈ theta
-      {0, theta, 1}
+      {cos(theta), 0, 0},
+      {0, cos(theta), -sin(theta)},  // Approximation: cos(theta) ≈ 1, sin(theta) ≈ theta
+      {0, sin(theta), cos(theta)}
   };
   // Rotate by x-axis
   rotatedVector = multiplyMatrixVector(rotationMatrixX, rotatedVector);
 
-  theta = debugRotationVector.y;
+  theta = rotationVector.y;
   float rotationMatrixY[3][3] = {
-      {1, 0, theta},   // Approximation: cos(theta) ≈ 1, sin(theta) ≈ theta
-      {0, 1, 0},
-      {-theta, 0, 1}
+      {cos(theta), 0, sin(theta)},   // Approximation: cos(theta) ≈ 1, sin(theta) ≈ theta
+      {0, cos(theta), 0},
+      {-sin(theta), 0, cos(theta)}
   };
   // Rotate by y-axis
   rotatedVector = multiplyMatrixVector(rotationMatrixY, rotatedVector);
 
-  theta = debugRotationVector.z;
+  theta = rotationVector.z;
   float rotationMatrixZ[3][3] = {
-      {1, -theta, 0},  // Approximation: cos(theta) ≈ 1, sin(theta) ≈ theta
-      {theta, 1, 0},
-      {0, 0, 1}
+      {cos(theta), -sin(theta), 0},  // Approximation: cos(theta) ≈ 1, sin(theta) ≈ theta
+      {sin(theta), cos(theta), 0},
+      {0, 0, cos(theta)}
   };
   // Rotate by z-axis
   rotatedVector = multiplyMatrixVector(rotationMatrixZ, rotatedVector);
 
-  Serial.print(" x: ");
-  Serial.print(rotatedVector.x);
-  Serial.print(" y: ");
-  Serial.print(rotatedVector.y);
-  Serial.print(" z: ");
-  Serial.print(rotatedVector.z);
+  // Serial.print(" x: ");
+  // Serial.print(rotatedVector.x);
+  // Serial.print(" y: ");
+  // Serial.print(rotatedVector.y);
+  // Serial.print(" z: ");
+  // Serial.print(rotatedVector.z);
     
   return rotatedVector;
 }
@@ -186,20 +186,14 @@ void NocMPU::kalmanUpdate() {
 
   readMpuValues();
   
-  Vector3 omega = gyro * deltaTime * 10; // Angular displacement (approx.)
+  // Calculate the rotation vector
+  Vector3 omega = gyro * deltaTime; // Angular displacement (approx.)
   
+  // Rotate vector with forbidden algebra magic
   Vector3 predictedGravity = gravity + cross(omega, gravity);
 
+  // OR Rotate vector with inefficient algebra "magic"
   // Vector3 predictedGravity = rotateVector3(gravity, omega);
-
-  // out_x = vec_x - vec_y*gyro_z + vec_z*gyro_y
-  // out_y = vec_y - vec_z*gyro_x + vec_x*gyro_z  
-  // out_z = vec_z - vec_x*gyro_y + vec_y*gyro_x
-
-  // Vector3 predictedGravity;
-
-  // predictedGravity.x = vec_x - vec_y*omega.z + vec_z*gyro_y;
-
 
   acc.normalize();
   
@@ -209,89 +203,37 @@ void NocMPU::kalmanUpdate() {
 
   gravity.normalize();
 
-  if (gravity.x < 0) 
-    Serial.print("  Gravity x: ");
-  else
-    Serial.print("  Gravity x:  ");
-  Serial.print(gravity.x);
-
-  if (gravity.y < 0) 
-    Serial.print("  Gravity y: ");
-  else
-    Serial.print("  Gravity y:  ");
-  Serial.print(gravity.y);
-
-  if (gravity.z < 0) 
-    Serial.print("  Gravity z: ");
-  else
-    Serial.print("  Gravity z:  ");
-  Serial.print(gravity.z);
-
+  // DEBUG 
+  // if (gravity.x < 0) 
+  //   Serial.print("  Gravity x: ");
+  // else
+  //   Serial.print("  Gravity x:  ");
+  // Serial.print(gravity.x);
+  // if (gravity.y < 0) 
+  //   Serial.print("  Gravity y: ");
+  // else
+  //   Serial.print("  Gravity y:  ");
+  // Serial.print(gravity.y);
+  // if (gravity.z < 0) 
+  //   Serial.print("  Gravity z: ");
+  // else
+  //   Serial.print("  Gravity z:  ");
+  // Serial.print(gravity.z);
   // if (acc.x < 0)
   //   Serial.print("  Acc x: ");
   // else
   //   Serial.print("  Acc x:  ");
   // Serial.print(acc.x);
-  
   // if (gravity.z < 0) 
   //   Serial.print("  Gravity z: ");
   // else
   //   Serial.print("  Predicted Gravity z:  ");
   // Serial.print(predictedGravity.x);
 
-  // Serial.print("  omega x:  ");
-  // Serial.print(omega.x, 6);
-  // Serial.print("  Delta time:  ");
-  // Serial.print(deltaTime, 6);
-  // Serial.print("  millis:  ");
-  // Serial.print(millis());
-  
   lastTime = micros();
 }
 
-/*
-void NocMPU::calculateSimpleAngle() {
-  
-  currentTime = micros();
-  deltaTime = lastTime - currentTime;
-
-  readMpuValues();
-
-  float oldGravityLength = sqrt(pow(gravityX, 2) + pow(gravityZ, 2));
-  float oldGravityAngle = acos(gravityX / oldGravityLength);
-  float newGravityAngle = oldGravityAngle + gyroY * (deltaTime / 1000000.0);
-
-  // Rotate old gravity vector
-  gravityX = oldGravityLength * cos(newGravityAngle);
-  gravityZ = oldGravityLength * sin(newGravityAngle);
-  
-  // Serial.print("  oldGravitylength: ");
-  // Serial.print(gyroY);
-  // Serial.print("  gravityX: ");
-  // Serial.print(gravityX);
-  // Serial.print("  gravityZ: ");
-  // Serial.println(gravityZ);
-
-  // float Glen = sqrt(pow(accX, 2) + pow(accZ, 2));   // Length of gravity vector
-  
-  // float angleRadian = asin(accY / Glen);
-
-  // Conversion from rad to angle
-  // angleRadian *= 180;
-  // angle = angleRadian / PI;
-
-  lastTime = micros();
-
-  return;
-}
-*/
 void NocMPU::calculateAngle() {
-  // X-axis (Roll): Imagine the axis going through the front and back of the device (nose to tail). Positive roll rotates the device clockwise as viewed from the front.
-  // Y-axis (Pitch): Think of the axis going through the sides (left to right). Positive pitch tilts the device upwards (nose up).
-  // Z-axis (Yaw): Picture the axis going through the top and bottom. Positive yaw rotates the device clockwise from a top-down view.
 
-  float angleRadian = atan2(gravity.y, gravity.x);
-  // Conversion from rad to angle
-  angleRadian *= 180;
-  angle = angleRadian / PI;
+  angle = atan2(-gravity.y, gravity.z) * (180.0 / PI);
 }

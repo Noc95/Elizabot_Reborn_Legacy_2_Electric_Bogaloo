@@ -63,6 +63,8 @@ void setup(void) {
   server.begin();
   Serial.println("TCP server started.");
   
+  // anglePID.enabled = true;
+
   delay(100);
 }
 
@@ -160,32 +162,41 @@ String readClientMessage() {
 // This is where the main robot code goes
 void elizabot() {
 
+  mpu.kalmanUpdate();
+  mpu.calculateAngle();
+
   // Sample time calculations  
   currentSampleTime = micros();
   if ((currentSampleTime - lastSampleTime) < sampleTime) {
     lastSampleTime = micros();
   
     
+    // --- Get data from human input ---
+    anglePID.setPoint = 0;
     
-    // if (message != "") {
-    //   Serial.print(message);
-    //   Serial.println();
-    // }
-    // anglePID.enabled = true;
-
-    // anglePID.setPoint = 100;
-    // if (abs(anglePID.output - anglePID.setPoint) < 1) {
-    //   anglePID.enabled = false;
-      
-    // }
-
-    // anglePID.input = anglePID.output;
-    // anglePID.calculate();
+    // --- Activate PID when standing up ---
+    if (!anglePID.enabled) {
+      if (abs(mpu.angle) < 5) {
+        anglePID.enabled = true;
+      }
+    } //  Deactivate PID when falling down
+    else {
+      if (abs(mpu.angle) > 80) {
+        anglePID.enabled = false;
+      }
+    }
+    
+    // --- Calculate control signal with PID ---
+    anglePID.input = mpu.angle;
+    anglePID.calculate();
     // Serial.print("PID setpoint: ");
     // Serial.print(anglePID.setPoint);
     // Serial.print("     PID output: ");
-    // Serial.println(anglePID.output);
+    // Serial.print(anglePID.output);
   
+    // --- Send control signal and turn signal to the motors ---
+    motorSignalMixer(anglePID.output, 0);
+
     // anglePID.enabled = true;
   }
 
@@ -193,45 +204,35 @@ void elizabot() {
 }
 
 
-// --- Benchmark function -------------------------------
-
+// --- Benchmark function ---
 void timeBenchmark() {
 
-  int iterations = 10000;
+  int iterations = 300;
   int frequency = 0;
-  unsigned int startTime = millis();
+  unsigned int startTime = micros();
 
   for (int i = 0; i < iterations; i++) {
 
     // --- Code to benchmark here ---
 
     elizabot();
-    // delay(1);
+
     // ------------------------------
   }
-  unsigned int endTime = millis();
+  unsigned int endTime = micros();
 
   // Calculate frequency:
   if (endTime - startTime == 0) {
     Serial.print("Can not divide by zero!");
   }
   else {
-    frequency = (float(iterations) / (float((endTime - startTime)))) * 1000.0;
+    frequency = (float(iterations) / (float((endTime - startTime)))) * 1000000.0;
   }
 
-  // Print results:
-  // Serial.print("Mean time: ");
-  // Serial.print(meanTime);
-  // Serial.print("  Longest time: ");
-  // Serial.print(longestTime);
-  // Serial.print("  Lowest time: ");
-  // Serial.print(lowestTime);
-  // Serial.print("  Iterations: ");
-  // Serial.print(iterations);
-  Serial.print("  Start time: ");
-  Serial.print(startTime);
-  Serial.print("  End time: ");
-  Serial.print(endTime);
+  // Serial.print("  Start time: ");
+  // Serial.print(startTime);
+  // Serial.print("  End time: ");
+  // Serial.print(endTime);
   Serial.print("  Frequency: ");
   Serial.println(frequency);
 
@@ -243,18 +244,7 @@ void timeBenchmark() {
 void loop() {
 
   // elizabot();
-  // timeBenchmark();
-  String message = readClientMessage();
-  // mpu.kalmanUpdate();
-  // mpu.calculateAngle();
-  // Serial.print("  Angle: ");
-  // Serial.print(mpu.angle);
-  // delay(2);
+  timeBenchmark();
 
-  
-
-  // Listen for incoming client connections
-  
-
-
+  // Serial.println();
 } 
