@@ -40,9 +40,14 @@ WiFiServer server(80); // Port 80, commonly used for HTTP/TCP communication
 // ---------------------------------------------------------
 
 void setup(void) {
+
   Serial.begin(9600);
   while (!Serial)
     delay(10); 
+
+  Serial.print("CPU Frequency: "); 
+  Serial.print(ESP.getCpuFreqMHz()); 
+  Serial.println(" MHz");
 
   pinMode(MOTOR_1_PIN_A, OUTPUT);
   pinMode(MOTOR_1_PIN_B, OUTPUT);
