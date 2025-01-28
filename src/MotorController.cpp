@@ -34,17 +34,18 @@ void MotorController::init() {
 
 
 
-static inline int asm_ccount(void) {
+// static inline int asm_ccount(void) {
 
-    int r;
+//     int r;
 
-    asm volatile ("rsr %0, ccount" : "=r"(r));
-    return r;
-}
+//     asm volatile ("rsr %0, ccount" : "=r"(r));
+//     return r;
+// }
 
 void MotorController::controlMotorSpeed(int pwmPin, int targetMotorSpeed) {
     
-    int currentTime = asm_ccount();
+    // int currentTime = asm_ccount();
+    int currentTime = 0; // temp "fix" to not have error
     this->motorSpeedDeltaTime = currentTime - this->motorSpeedLastTime;
 
     analogWrite(pwmPin, targetMotorSpeed);

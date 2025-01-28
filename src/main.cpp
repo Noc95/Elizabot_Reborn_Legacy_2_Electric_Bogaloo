@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include <NocPID.h>
 // #include <NocMPU.h>
+#include <NocIMU.h>
 // #include <ESP8266WiFi.h>
 
 
@@ -34,18 +35,11 @@ float correction_kd = 0;
 float correctionMaxOutputAbs = 10;
 NocPID correctionPID(correction_kp, correction_ki, correction_kd, correctionMaxOutputAbs);
 
-NocMPU mpu;
+NocIMU imu;
 
-// sample time in amount of cycles. Calculated with: period time * cpu frequency (80 MHz)
-unsigned long sampleTime = 2000; // Microseconds
-// 500 Hz (0.002 seconds * 80000000 Hz)
+unsigned long sampleTime = 2000; // Microseconds. 2000us = 500Hz
 unsigned long lastSampleTime = 0;
 unsigned long currentSampleTime = 0;
-
-const char* ssid = "elizabot";
-const char* password = "12345678"; // Password must be at least 8 characters
-
-// WiFiServer server(80); // Port 80, commonly used for HTTP/TCP communication
 
 // ---------------------------------------------------------
 
@@ -54,10 +48,6 @@ void setup(void) {
   Serial.begin(9600);
   while (!Serial)
     delay(10); 
-
-  Serial.print("CPU Frequency: "); 
-  Serial.print(ESP.getCpuFreqMHz()); 
-  Serial.println(" MHz");
 
   pinMode(MOTOR_1_PIN_A, OUTPUT);
   pinMode(MOTOR_1_PIN_B, OUTPUT);
@@ -69,20 +59,9 @@ void setup(void) {
   digitalWrite(MOTOR_2_PIN_A, LOW);
   digitalWrite(MOTOR_2_PIN_B, LOW);
 
-  mpu.initializeMPU();
-  mpu.calibrateMPU();
+  imu.initializeIMU();
+  imu.calibrateIMU();
 
-  WiFi.softAP(ssid, password);
-  Serial.println("Hotspot created.");
-  Serial.print("SSID: ");
-  Serial.println(ssid);
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.softAPIP());
-
-  // Start the server
-  server.begin();
-  Serial.println("TCP server started.");
-  
   anglePID.enabled = false;
   correctionPID.enabled = false;
 
@@ -153,66 +132,30 @@ void motorSignalMixer(int controlSignal, int turnSignal) {
   
 }
 
-static inline int asm_ccount(void) {
-
-    int r;
-
-    asm volatile ("rsr %0, ccount" : "=r"(r));
-    return r;
-}
-
-String readClientMessage() {
-  
-  WiFiClient client = server.available();
-  // Serial.print(client);
-  if (client) {
-    Serial.println("Client connected.");
-    if (client.connected()) {
-      if (client.available()) {
-        String message = client.readStringUntil('\n'); // Read until newline
-        Serial.print(message);
-        Serial.println();
-        return message;
-        
-      }
-    }
-    // else {
-    //   client.stop(); // Disconnect the client
-    //   Serial.println("Client disconnected.");
-    //   return "";
-    // }
-  }
-  return "";
-}
 
 // --- Main function ------------------------------------------
 
 // This is where the main robot code goes
 void elizabot() {
 
-  mpu.kalmanUpdate();
-  mpu.calculateAngle();
-
-  // Serial.print("  currentSampleTime - lastSampleTime: ");
-  // Serial.println(currentSampleTime - lastSampleTime);
+  imu.elizabotCalculateAngle();
 
   // Sample time calculations  
   currentSampleTime = micros();
   if ((currentSampleTime - lastSampleTime) > sampleTime) {
     lastSampleTime = micros();
   
-    
     // --- Get data from human input ---
     anglePID.setPoint = 0;
     
     // --- Activate PID when standing up ---
     if (!anglePID.enabled) {
-      if (abs(mpu.angle) < 5) {
+      if (abs(imu.angle) < 5) {
         anglePID.enabled = true;
       }
     } //  Deactivate PID when falling down
     else {
-      if (abs(mpu.angle) > 50) {
+      if (abs(imu.angle) > 50) {
         anglePID.enabled = false;
         correctionPID.enabled;
       }
@@ -228,7 +171,7 @@ void elizabot() {
       anglePID.input = correctionPID.output;
     }
     else {
-      anglePID.input = -mpu.angle;
+      anglePID.input = -imu.angle;
     }
     
     // Calculate motor signal
@@ -238,13 +181,14 @@ void elizabot() {
     correctionPID.input = anglePID.output;
     correctionPID.calculate();
     
-    Serial.print("  Angle: ");
-    Serial.print(mpu.angle);
-    Serial.print("  angle PID output: ");
-    Serial.print(anglePID.output);
-    Serial.print("  corr PID output: ");
-    Serial.print(correctionPID.output);
-    Serial.println();
+    // DEBUG
+    // Serial.print("  Angle: ");
+    // Serial.print(imu.angle);
+    // Serial.print("  angle PID output: ");
+    // Serial.print(anglePID.output);
+    // Serial.print("  corr PID output: ");
+    // Serial.print(correctionPID.output);
+    // Serial.println();
   
     // --- Send control signal and turn signal to the motors ---
     if (anglePID.enabled) {
@@ -253,16 +197,13 @@ void elizabot() {
     else {
       sendMotorSignals(0, 0, 0);
     }
-      
 
-    // anglePID.enabled = true;
   }
-
-  return;
 }
 
 
 // --- Benchmark function ---
+
 void timeBenchmark() {
 
   int iterations = 300;
@@ -301,15 +242,11 @@ void timeBenchmark() {
 
 void loop() {
 
-  elizabot();
+  // elizabot();
   // timeBenchmark();
-  // Serial.print(mpu.angle);
-  // Serial.println();
 
-  // sendMotorSignals(-500, 500, 1);
-  // Serial.println("going!");
-  // analogWrite(MOTOR_1_PIN_A, 50);
-  // digitalWrite(MOTOR_1_PIN_B, LOW);
-
-  // delay(1000);
+  imu.readIMUValues();
+  Serial.print(imu.angle);
+  Serial.println();
+  
 } 

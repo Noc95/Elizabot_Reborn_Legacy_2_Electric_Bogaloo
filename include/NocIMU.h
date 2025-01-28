@@ -1,11 +1,11 @@
 
-#ifndef NOCMPU_H
-#define NOCMPU_H
+#ifndef NocIMU_H
+#define NocIMU_H
 
 // #include <Adafruit_MPU6050.h>
 
 
-class NocMPU
+class NocIMU
 {
     
 public:
@@ -15,19 +15,17 @@ public:
 
     float angle;
 
-    float yaw;
-    float pitch;
-    float roll;
+    void initializeIMU();
+    void calibrateIMU();
 
-    void initializeMPU();
-    void calibrateMPU();
+    void elizabotCalculateAngle();  // One in all function to rule them all
 
-    void readMpuValues();
-    void kalmanUpdate();
+    void readIMUValues();
+    // void kalmanUpdate();
     
-    void calculateAngle();
+    // void calculateAngle();
 
-    NocMPU();
+    NocIMU();
 
     struct Vector3 {
         float x, y, z;
@@ -58,13 +56,13 @@ public:
         }
     };
 
-    Vector3 cross(const Vector3& a, const Vector3& b);
-    Vector3 rotateVector3(const NocMPU::Vector3& a, const NocMPU::Vector3& b);
-    Vector3 multiplyMatrixVector(float matrix[3][3], Vector3 vector);
+    // Vector3 cross(const Vector3& a, const Vector3& b);
+    // Vector3 rotateVector3(const NocIMU::Vector3& a, const NocIMU::Vector3& b);
+    // Vector3 multiplyMatrixVector(float matrix[3][3], Vector3 vector);
 
 private:
 
-    Adafruit_MPU6050 mpu;
+    
 
     Vector3 gravity;
     // float gravityX = 0;
@@ -77,6 +75,16 @@ private:
 
     Vector3 acc;
     Vector3 gyro;
+
+    Vector3 gyroRad;
+
+    // float gyroX = 0;
+    // float gyroY = 0;
+    // float gyroZ = 0;
+
+    // float accX = 0;
+    // float accY = 0;
+    // float accZ = 0;
 
     float accXCalibrationValue = 0;
     float accYCalibrationValue = 0;
