@@ -1,9 +1,9 @@
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
+// #include <Adafruit_MPU6050.h>
+// #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <NocPID.h>
-#include <NocMPU.h>
-#include <ESP8266WiFi.h>
+// #include <NocMPU.h>
+// #include <ESP8266WiFi.h>
 
 
 // --------------------------------------------------------
@@ -13,16 +13,26 @@
 #define MOTOR_2_PIN_A 13
 #define MOTOR_2_PIN_B 15
 
-#define MIN_MOTOR_SIGNAL 30
+#define MIN_MOTOR_SIGNAL 20
 #define MAX_MOTOR_SIGNAL 255
 #define MIN_CONTROL_SIGNAL 0
 #define MAX_CONTROL_SIGNAL 1000
 
-float angle_kp = 0.5;
-float angle_ki = 5;
+// TODO: calibrate angle at start?
+
+// Angle PID. Input = angle, output = motor signal
+float angle_kp = 50;
+float angle_ki = 10;
 float angle_kd = 0;
-float angle_maxOutputAbs = 1000;
-NocPID anglePID(angle_kp, angle_ki, angle_kd, angle_maxOutputAbs);
+float angleMaxOutputAbs = 1000;
+NocPID anglePID(angle_kp, angle_ki, angle_kd, angleMaxOutputAbs);
+
+// Correction PID. Input = motor signal, output = angle
+float correction_kp = 0.01;
+float correction_ki = 2;
+float correction_kd = 0;
+float correctionMaxOutputAbs = 10;
+NocPID correctionPID(correction_kp, correction_ki, correction_kd, correctionMaxOutputAbs);
 
 NocMPU mpu;
 
@@ -35,7 +45,7 @@ unsigned long currentSampleTime = 0;
 const char* ssid = "elizabot";
 const char* password = "12345678"; // Password must be at least 8 characters
 
-WiFiServer server(80); // Port 80, commonly used for HTTP/TCP communication
+// WiFiServer server(80); // Port 80, commonly used for HTTP/TCP communication
 
 // ---------------------------------------------------------
 
@@ -54,6 +64,11 @@ void setup(void) {
   pinMode(MOTOR_2_PIN_A, OUTPUT);
   pinMode(MOTOR_2_PIN_B, OUTPUT);
 
+  digitalWrite(MOTOR_1_PIN_A, LOW);
+  digitalWrite(MOTOR_1_PIN_B, LOW);
+  digitalWrite(MOTOR_2_PIN_A, LOW);
+  digitalWrite(MOTOR_2_PIN_B, LOW);
+
   mpu.initializeMPU();
   mpu.calibrateMPU();
 
@@ -68,9 +83,10 @@ void setup(void) {
   server.begin();
   Serial.println("TCP server started.");
   
-  // anglePID.enabled = true;
+  anglePID.enabled = false;
+  correctionPID.enabled = false;
 
-  delay(100);
+  delay(1000);
 }
 
 // --- Project specific functions -----------------------------------------------------
@@ -85,17 +101,17 @@ void sendMotorSignals(int motor1Signal, int motor2Signal, int controlSignal) {
     digitalWrite(MOTOR_2_PIN_B, LOW);
   }
   else if (controlSignal >= 0) {
-    analogWrite(MOTOR_1_PIN_A, motor1Signal);
+    analogWrite(MOTOR_1_PIN_A, abs(motor1Signal));
     digitalWrite(MOTOR_1_PIN_B, LOW);
 
     digitalWrite(MOTOR_2_PIN_A, LOW);
-    analogWrite(MOTOR_2_PIN_B, motor2Signal);
+    analogWrite(MOTOR_2_PIN_B, abs(motor2Signal));
   }
   else {
     digitalWrite(MOTOR_1_PIN_A, LOW);
-    analogWrite(MOTOR_1_PIN_B, motor1Signal);
+    analogWrite(MOTOR_1_PIN_B, abs(motor1Signal));
 
-    analogWrite(MOTOR_2_PIN_A, motor2Signal);
+    analogWrite(MOTOR_2_PIN_A, abs(motor2Signal));
     digitalWrite(MOTOR_2_PIN_B, LOW);
   }
 }
@@ -116,15 +132,22 @@ void motorSignalMixer(int controlSignal, int turnSignal) {
   if (controlSignal >= 0) {
     motor1TurnAddition = map(turnSignal, -maxTurnSignalAddition, maxTurnSignalAddition, -MAX_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL);
     motor2TurnAddition = -map(turnSignal, -maxTurnSignalAddition, maxTurnSignalAddition, -MAX_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL);
-    motor1Signal = min(int(map(controlSignal, MIN_MOTOR_SIGNAL, MAX_MOTOR_SIGNAL, MIN_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL)) + motor1TurnAddition, MAX_MOTOR_SIGNAL);
-    motor2Signal = min(int(map(controlSignal, MIN_MOTOR_SIGNAL, MAX_MOTOR_SIGNAL, MIN_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL)) + motor2TurnAddition, MAX_MOTOR_SIGNAL);
+    motor1Signal = min(int(map(controlSignal, MIN_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL, MIN_MOTOR_SIGNAL, MAX_MOTOR_SIGNAL)) + motor1TurnAddition, MAX_MOTOR_SIGNAL);
+    motor2Signal = min(int(map(controlSignal, MIN_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL, MIN_MOTOR_SIGNAL, MAX_MOTOR_SIGNAL)) + motor2TurnAddition, MAX_MOTOR_SIGNAL);
   }
   else {
     motor1TurnAddition = -map(turnSignal, -maxTurnSignalAddition, maxTurnSignalAddition, -MAX_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL);
     motor2TurnAddition = map(turnSignal, -maxTurnSignalAddition, maxTurnSignalAddition, -MAX_CONTROL_SIGNAL, MAX_CONTROL_SIGNAL);
-    motor1Signal = max(int(map(controlSignal, -MIN_MOTOR_SIGNAL, -MAX_MOTOR_SIGNAL, MIN_CONTROL_SIGNAL, -MAX_CONTROL_SIGNAL)) + motor1TurnAddition, -MAX_MOTOR_SIGNAL);
-    motor2Signal = max(int(map(controlSignal, -MIN_MOTOR_SIGNAL, -MAX_MOTOR_SIGNAL, MIN_CONTROL_SIGNAL, -MAX_CONTROL_SIGNAL)) + motor2TurnAddition, -MAX_MOTOR_SIGNAL);
+    motor1Signal = max(int(map(controlSignal, MIN_CONTROL_SIGNAL, -MAX_CONTROL_SIGNAL, -MIN_MOTOR_SIGNAL, -MAX_MOTOR_SIGNAL)) + motor1TurnAddition, -MAX_MOTOR_SIGNAL);
+    motor2Signal = max(int(map(controlSignal, MIN_CONTROL_SIGNAL, -MAX_CONTROL_SIGNAL, -MIN_MOTOR_SIGNAL, -MAX_MOTOR_SIGNAL)) + motor2TurnAddition, -MAX_MOTOR_SIGNAL);
   }
+
+  // Serial.print("  Turn 1: ");
+  // Serial.print(motor1TurnAddition);
+  // Serial.print("  Motor 1: ");
+  // Serial.print(motor1Signal);
+  // Serial.print("  Motor 2: ");
+  // Serial.print(motor2Signal);
 
   sendMotorSignals(motor1Signal, motor2Signal, controlSignal);
   
@@ -170,9 +193,12 @@ void elizabot() {
   mpu.kalmanUpdate();
   mpu.calculateAngle();
 
+  // Serial.print("  currentSampleTime - lastSampleTime: ");
+  // Serial.println(currentSampleTime - lastSampleTime);
+
   // Sample time calculations  
   currentSampleTime = micros();
-  if ((currentSampleTime - lastSampleTime) < sampleTime) {
+  if ((currentSampleTime - lastSampleTime) > sampleTime) {
     lastSampleTime = micros();
   
     
@@ -186,21 +212,48 @@ void elizabot() {
       }
     } //  Deactivate PID when falling down
     else {
-      if (abs(mpu.angle) > 80) {
+      if (abs(mpu.angle) > 50) {
         anglePID.enabled = false;
+        correctionPID.enabled;
       }
+    }
+
+    // Activate correction PID if no user input
+    if (anglePID.setPoint == 0) {
+      correctionPID.enabled = true;
     }
     
     // --- Calculate control signal with PID ---
-    anglePID.input = mpu.angle;
+    if (correctionPID.enabled) {
+      anglePID.input = correctionPID.output;
+    }
+    else {
+      anglePID.input = -mpu.angle;
+    }
+    
+    // Calculate motor signal
     anglePID.calculate();
-    // Serial.print("PID setpoint: ");
-    // Serial.print(anglePID.setPoint);
-    // Serial.print("     PID output: ");
-    // Serial.print(anglePID.output);
+
+    // Calculate angle correction
+    correctionPID.input = anglePID.output;
+    correctionPID.calculate();
+    
+    Serial.print("  Angle: ");
+    Serial.print(mpu.angle);
+    Serial.print("  angle PID output: ");
+    Serial.print(anglePID.output);
+    Serial.print("  corr PID output: ");
+    Serial.print(correctionPID.output);
+    Serial.println();
   
     // --- Send control signal and turn signal to the motors ---
-    motorSignalMixer(anglePID.output, 0);
+    if (anglePID.enabled) {
+      motorSignalMixer(anglePID.output, 0);
+    }
+    else {
+      sendMotorSignals(0, 0, 0);
+    }
+      
 
     // anglePID.enabled = true;
   }
@@ -248,8 +301,15 @@ void timeBenchmark() {
 
 void loop() {
 
-  // elizabot();
-  timeBenchmark();
-
+  elizabot();
+  // timeBenchmark();
+  // Serial.print(mpu.angle);
   // Serial.println();
+
+  // sendMotorSignals(-500, 500, 1);
+  // Serial.println("going!");
+  // analogWrite(MOTOR_1_PIN_A, 50);
+  // digitalWrite(MOTOR_1_PIN_B, LOW);
+
+  // delay(1000);
 } 

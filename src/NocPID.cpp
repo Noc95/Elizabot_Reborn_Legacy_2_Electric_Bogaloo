@@ -23,6 +23,7 @@ void NocPID::calculate()
       I = 0;
       D = 0;
       lastTime = 0;
+      output = 0;
 
       return;
     }

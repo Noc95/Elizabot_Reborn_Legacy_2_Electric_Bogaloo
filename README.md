@@ -7,6 +7,8 @@ Third try of creating the amazing balanzing robot.
 
 MPU SAMPLING SHOULD BE FASSTTT
 
+Mahony or Madwick filter could work.
+
 ### Updating drivers for NodeMCU
 https://learn.sparkfun.com/tutorials/how-to-install-ch340-drivers/all
 
