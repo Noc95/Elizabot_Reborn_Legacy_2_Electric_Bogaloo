@@ -10,10 +10,11 @@ class NocIMU
     
 public:
     
-    float gyroTrust = 0.95;
-    float accTrust = 0.05;
+    float gyroTrust = 0.97;
+    // float accTrust = 0.05;
 
     float angle;
+    float angle2;
 
     void initializeIMU();
     void calibrateIMU();
@@ -56,14 +57,14 @@ public:
         }
     };
 
-    // Vector3 cross(const Vector3& a, const Vector3& b);
+    Vector3 cross(const Vector3& a, const Vector3& b);
     // Vector3 rotateVector3(const NocIMU::Vector3& a, const NocIMU::Vector3& b);
     // Vector3 multiplyMatrixVector(float matrix[3][3], Vector3 vector);
+    void kalmanUpdate();
 
 private:
 
-    
-
+    int dummy;
     Vector3 gravity;
     // float gravityX = 0;
     // float gravityY = 0;
@@ -78,6 +79,9 @@ private:
 
     Vector3 gyroRad;
 
+    int rollingFilterCOunt = 5;
+    float angleRollingFilterArr[5];    // Size needs to be same as rollingFilterCOunt
+
     // float gyroX = 0;
     // float gyroY = 0;
     // float gyroZ = 0;
@@ -90,6 +94,8 @@ private:
     float accYCalibrationValue = 0;
     float accZCalibrationValue = 0;
 
+    float angleCorrection;
+
     float gyroXCalibrationValue = 0;
     float gyroYCalibrationValue = 0;
     float gyroZCalibrationValue = 0;
@@ -97,7 +103,13 @@ private:
     float deltaTime;
     unsigned long lastTime;     // In Microseconds
     unsigned long currentTime;  // In Microseconds
+
+    float deltaTime2;
+    unsigned long lastTime2;     // In Microseconds
+    unsigned long currentTime2;  // In Microseconds
     
+
+    float angleRollingFilter(float newValue);
 };
 
 
