@@ -20,7 +20,7 @@
 
 // TODO: calibrate angle at start?
 
-// NocMotor motor1(900, 4, 5, 9, 10);
+NocMotor motor1(900, 4, 5, 9, 10);
 
 // Angle PID. Input = angle, output = motor signal
 // P~40, I~230, D~3-5
@@ -45,17 +45,21 @@ unsigned long currentSampleTime = 0;
 
 // ---------------------------------------------------------
 
-int encoderA = 9;
-int encoderB = 10;
-int encoderCount = 0;
-
-void handleEncoderInterrupt() {
-  if (digitalRead(encoderA) == digitalRead(encoderB)) {
-    encoderCount++;
-  } else {
-    encoderCount--;
-  }
+void motor1Interrupt() {
+  motor1.handleEncoderInterrupt();
 }
+
+void motor2Interrupt() {
+  // motor2.handleEncoderInterrupt();
+}
+
+// void handleEncoderInterrupt() {
+//   if (digitalRead(encoderA) == digitalRead(encoderB)) {
+//     encoderCount++;
+//   } else {
+//     encoderCount--;
+//   }
+// }
 
 void setup(void) {
 
@@ -79,9 +83,12 @@ void setup(void) {
   anglePID.enabled = false;
   correctionPID.enabled = false;
 
-  pinMode(9, INPUT);
-  pinMode(10, INPUT);
-  attachInterrupt(digitalPinToInterrupt(9), handleEncoderInterrupt, CHANGE);
+  motor1.init();
+  motor1.enabled = false;
+
+  // pinMode(9, INPUT);
+  // pinMode(10, INPUT);
+  attachInterrupt(digitalPinToInterrupt(motor1.encoderPinA), motor1Interrupt, CHANGE);
 
   delay(1000);
 }
@@ -291,16 +298,7 @@ NocPID encoderMotorPID(1, 0, 0, correctionMaxOutputAbs);
 void loop() {
 
 
-  // motor1.test(0);
 
-  delay(2);
-
-  rps = ((encoderCount-lastValue)/180.0)*500;
-  
-  
-
-  // Serial.println(rps);
-  lastValue = encoderCount;
 
   // elizabot();
   // timeBenchmark();
@@ -313,3 +311,18 @@ void loop() {
   // Serial.print(imu.angle2);
   // Serial.println();
 } 
+
+/*
+
+int encoderA = 9;
+int encoderB = 10;
+int encoderCount = 0;
+  pinMode(9, INPUT);
+  pinMode(10, INPUT);
+  attachInterrupt(digitalPinToInterrupt(9), handleEncoderInterrupt, CHANGE);
+  
+  rps = ((encoderCount-lastValue)/180.0)*500;
+  lastValue = encoderCount;
+
+  
+  */
