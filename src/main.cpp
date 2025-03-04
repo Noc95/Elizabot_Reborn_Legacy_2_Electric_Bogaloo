@@ -44,28 +44,37 @@ unsigned long lastSampleTime = 0;
 unsigned long currentSampleTime = 0;
 
 // ---------------------------------------------------------
+int testcount = 0;
+
+void handleEncoderInterrupt() {
+
+  // bool pinAState = gpio_get(motor1.encoderPinA);
+  // bool pinBState = gpio_get(motor1.encoderPinB);
+  
+  if (digitalRead(motor1.encoderPinA) == digitalRead(motor1.encoderPinB)) {
+    motor1.encoderCount++;
+  } else {
+    motor1.encoderCount--;
+  }
+  // delay(1);
+  // testcount++;
+}
 
 void motor1Interrupt() {
-  motor1.handleEncoderInterrupt();
+  handleEncoderInterrupt();
 }
 
 void motor2Interrupt() {
   // motor2.handleEncoderInterrupt();
 }
 
-// void handleEncoderInterrupt() {
-//   if (digitalRead(encoderA) == digitalRead(encoderB)) {
-//     encoderCount++;
-//   } else {
-//     encoderCount--;
-//   }
-// }
+
 
 void setup(void) {
 
-  // Serial.begin(115200);
-  // while (!Serial)
-  //   delay(10); 
+  Serial.begin(115200);
+  while (!Serial)
+    delay(10); 
 
   pinMode(MOTOR_1_PIN_A, OUTPUT);
   pinMode(MOTOR_1_PIN_B, OUTPUT);
@@ -86,8 +95,6 @@ void setup(void) {
   motor1.init();
   motor1.enabled = false;
 
-  // pinMode(9, INPUT);
-  // pinMode(10, INPUT);
   attachInterrupt(digitalPinToInterrupt(motor1.encoderPinA), motor1Interrupt, CHANGE);
 
   delay(1000);
@@ -294,11 +301,22 @@ void timeBenchmark() {
 int lastValue = 0;
 float rps = 0;
 NocPID encoderMotorPID(1, 0, 0, correctionMaxOutputAbs);
+int counter = 0;
 
 void loop() {
 
+  delay(2);
 
+  motor1.calculateRotationSpeed();
+  counter++;
 
+  // if (counter >= 500) {
+  //   Serial.println(motor1.rotationSpeed);
+  //   counter = 0;
+  // }
+  // if (motor1.encoderCount == 5) {
+  //   digitalRead(motor1.encoderPinA);
+  // }
 
   // elizabot();
   // timeBenchmark();

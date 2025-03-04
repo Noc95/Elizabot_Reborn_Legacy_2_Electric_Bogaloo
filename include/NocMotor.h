@@ -19,7 +19,7 @@ public:
     int encoderPinB;
     int encoderCount = 0;
 
-    float rotationSpeed;
+    float rotationSpeed = 0;
     
     void init();
     void handleEncoderInterrupt();
@@ -35,7 +35,7 @@ private:
     unsigned int lastTime;
     unsigned int currentTime;
     unsigned int deltaTime;
-    unsigned int maxTimeBetweenEncoderUpdate = 5000;
+    unsigned int maxTimeBetweenEncoderUpdate = 100000;
 
     int lastEncoderCount = 0;
 
