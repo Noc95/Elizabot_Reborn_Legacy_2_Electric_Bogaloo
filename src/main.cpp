@@ -20,7 +20,7 @@
 
 // TODO: calibrate angle at start?
 
-NocMotor motor1(900, 4, 5, 9, 10);
+NocMotor leftMotor(900, 4, 5, 9, 10, -1);
 
 // Angle PID. Input = angle, output = motor signal
 // P~40, I~230, D~3-5
@@ -44,17 +44,16 @@ unsigned long lastSampleTime = 0;
 unsigned long currentSampleTime = 0;
 
 // ---------------------------------------------------------
-int testcount = 0;
 
 void handleEncoderInterrupt() {
 
   // bool pinAState = gpio_get(motor1.encoderPinA);
   // bool pinBState = gpio_get(motor1.encoderPinB);
   
-  if (digitalRead(motor1.encoderPinA) == digitalRead(motor1.encoderPinB)) {
-    motor1.encoderCount++;
+  if (digitalRead(leftMotor.encoderPinA) == digitalRead(leftMotor.encoderPinB)) {
+    leftMotor.encoderCount++;
   } else {
-    motor1.encoderCount--;
+    leftMotor.encoderCount--;
   }
   // delay(1);
   // testcount++;
@@ -92,10 +91,10 @@ void setup(void) {
   anglePID.enabled = false;
   correctionPID.enabled = false;
 
-  motor1.init();
-  motor1.enabled = false;
+  leftMotor.init();
+  leftMotor.enabled = true;
 
-  attachInterrupt(digitalPinToInterrupt(motor1.encoderPinA), motor1Interrupt, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(leftMotor.encoderPinA), motor1Interrupt, CHANGE);
 
   delay(1000);
 }
@@ -195,15 +194,19 @@ void motorSignalMixer(int controlSignal, int turnSignal) {
 void elizabot() {
 
   imu.elizabotCalculateAngle();
-  // imu.kalmanUpdate()
+  leftMotor.calculateRotationSpeed();
+
 
   // Sample time calculations  
   currentSampleTime = micros();
   if ((currentSampleTime - lastSampleTime) > sampleTime) {
     lastSampleTime = micros();
+
+    // leftMotor.PIDsetPoint = 5;
+    leftMotor.RunMotorControl();
   
     // --- Get data from human input ---
-    anglePID.setPoint = 2;
+    anglePID.setPoint = 0;
     
     // --- Activate PID when standing up ---
     if (!anglePID.enabled) {
@@ -248,12 +251,12 @@ void elizabot() {
     // Serial.println();
   
     // --- Send control signal and turn signal to the motors ---
-    if (anglePID.enabled) {
-      motorSignalMixer(anglePID.output, 0);
-    }
-    else {
-      sendMotorSignals(0, 0);
-    }
+    // if (anglePID.enabled) {
+    //   motorSignalMixer(anglePID.output, 0);
+    // }
+    // else {
+    //   sendMotorSignals(0, 0);
+    // }
 
   }
 }
@@ -272,6 +275,8 @@ void timeBenchmark() {
     // --- Code to benchmark here ---
 
     // elizabot();
+    // leftMotor.calculateRotationSpeed();
+    
 
     // ------------------------------
   }
@@ -289,26 +294,46 @@ void timeBenchmark() {
   // Serial.print(startTime);
   // Serial.print("  End time: ");
   // Serial.print(endTime);
+
   Serial.print("  Frequency: ");
   Serial.println(frequency);
 
+  // Serial.println(leftMotor.rotationSpeed);
 }
 
 
 // --------------------------------------------------------
 
-
-int lastValue = 0;
-float rps = 0;
-NocPID encoderMotorPID(1, 0, 0, correctionMaxOutputAbs);
-int counter = 0;
+float testCount = 0;
 
 void loop() {
 
-  delay(2);
+  elizabot();
 
-  motor1.calculateRotationSpeed();
-  counter++;
+  testCount++;
+
+  
+  // if (testCount >= 2000) {
+  //   testCount = 0;
+  //   if (leftMotor.PIDsetPoint == -10) {
+  //     leftMotor.PIDsetPoint = 10;
+  //   }
+  //   else {
+  //     leftMotor.PIDsetPoint = -10;
+  //   }
+  // }
+
+  leftMotor.PIDsetPoint = 10 * sin(2*PI*(1.0/3.0)*millis()/1000) + 5 * sin(PI*(1.0/3.0)*millis()/1000);
+
+  // delay(2);
+
+  // leftMotor.RunMotorControl();
+
+  // leftMotor.calculateRotationSpeed();
+  Serial.println(leftMotor.rotationSpeed);
+  // Serial.println(leftMotor.PIDsetPoint);
+
+  // counter++;
 
   // if (counter >= 500) {
   //   Serial.println(motor1.rotationSpeed);
