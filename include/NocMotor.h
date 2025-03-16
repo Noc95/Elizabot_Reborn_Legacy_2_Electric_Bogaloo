@@ -14,7 +14,7 @@ public:
 
     int direction;  // -1 for left wheel, 1 for the right wheel
 
-    int maxRPM;
+    int maxRPS;
     int motorPinA;
     int motorPinB;
     int encoderPinA;
@@ -31,7 +31,7 @@ public:
     
 
 
-    NocMotor(int maxRPM, int motorPinA, int motorPinB, int encoderPinA, int encoderPinB, int direction);
+    NocMotor(int maxRPS, int motorPinA, int motorPinB, int encoderPinA, int encoderPinB, int direction);
 
 
 private:
@@ -52,15 +52,18 @@ private:
 
     void calculateMotorPID();
 
-    float kp = 45;  // 50 ? 45 ?
-    float ki = 90;  // 70 ? 120 ?
-    float kd = 4.5;
+    float kp = 25;  // 50 ? 45 ? 36
+    float ki = 400;  // 70 ? 120 ? 500
+    float kd = 0;
+
+    float alphaD = 0.1; // Filter for the D part of the PID controller
+    float lastD = 0;
 
     float PIDinput = 0;
     float lastPIDinput = 0;
     
-
     float cumError = 0;
+    float lastError = 0;
 
     float P = 0;
     float I = 0;

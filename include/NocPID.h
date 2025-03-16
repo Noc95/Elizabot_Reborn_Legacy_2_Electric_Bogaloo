@@ -36,7 +36,10 @@ private:
     float I;
     float D;
 
-    float cumError;
+    float cumError = 0;
+    float lastError = 0;
+    float alphaD = 0.1; // Filter thing
+    float lastD = 0; // Filter thing
 };
 
 

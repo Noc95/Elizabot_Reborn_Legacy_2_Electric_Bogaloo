@@ -4,10 +4,10 @@
 #include "NocPID.h"
 
 
-NocMotor::NocMotor(int maxRPM, int motorPinA, int motorPinB, int encoderPinA, int encoderPinB, int direction) 
+NocMotor::NocMotor(int maxRPS, int motorPinA, int motorPinB, int encoderPinA, int encoderPinB, int direction) 
 {
 
-    this->maxRPM = maxRPM;
+    this->maxRPS = maxRPS;
     this->motorPinA = motorPinA;
     this->motorPinB = motorPinB;
     this->encoderPinA = encoderPinA;
@@ -46,7 +46,7 @@ void NocMotor::calculateRotationSpeed() {
         unsigned int deltaTime = rotationCurrentTime - rotationLastTime;
 
         float rotationSpeedTemp = direction * ((encoderCount-lastEncoderCount) / 180.0) * (1000000.0 / deltaTime); // Gives RPS, Rounds Per Second
-
+        // Serial.println(rotationSpeedTemp);
         lastEncoderCount = encoderCount;
         
         rollingFilterSum -= rotationSpeedBuffer[rollingFilterIndex];  // Remove the oldest reading from sum
@@ -72,7 +72,7 @@ void NocMotor::calculateMotorPID() {
         D = 0;
         // PIDlastTime = 0;
         controlSignal = 0;
-  
+
         return;
       }
   
@@ -89,15 +89,32 @@ void NocMotor::calculateMotorPID() {
       
       if (!(abs(controlSignal) >= maxcontrolSignalAbs)) {
           cumError += error * deltaTime / 1000000;  // Divided by 1000000 because of micro seconds
+          if (isnan(cumError)) {
+            cumError = 0;
+          }
           I = ki * cumError;
       }
+    //   Serial.print(" cumError: ");
+    //   Serial.print(cumError);
+    //   Serial.print(" error: ");
+    //   Serial.print(error);
+    //   Serial.print(" deltaTime: ");
+    //   Serial.print(deltaTime);
+    //   Serial.println(" ");
   
-      D = kp * kd * ((PIDinput - lastPIDinput) / deltaTime);
+      D = kd * ((error - lastError) / (deltaTime / 1000000));
+      if (isnan(D)) {
+        D = 0;
+      }
+      D = alphaD * D + (1 - alphaD) * lastD;    // Low-pass filter
+      lastD = D;
       
       float tempControlSignal = P + I + D;
-      
+    
       // Serial.print(" Delta time: ");
-      // Serial.print(deltaTime);
+    //   Serial.print((PIDcurrentTime));
+    //   Serial.print("  ");
+    //   Serial.println((PIDlastTime));
     //   Serial.print(PIDsetPoint);
     //   Serial.print(" P: ");
     //   Serial.print(P);
@@ -106,6 +123,7 @@ void NocMotor::calculateMotorPID() {
     //   Serial.print(" D: ");
     //   Serial.print(D);
     //   Serial.println(" ");
+    
       
       lastPIDinput = PIDinput;
       
@@ -116,8 +134,8 @@ void NocMotor::calculateMotorPID() {
       else
           controlSignal = tempControlSignal;
   
-    //   outputValid = true;
-  
+    //   Serial.println(controlSignal);
+
       return;
 }
 
@@ -134,13 +152,17 @@ void NocMotor::RunMotorControl() {
 
     calculateMotorPID();
 
+    // Serial.print(PIDsetPoint);
+    // Serial.print(" ");
+    // Serial.println(controlSignal);
+
     if (enabled == true) {
-        if (direction != 0) {
-            if (controlSignal < 0) {
+        if (direction == 1) {
+            if (controlSignal > 0) {
                 analogWrite(motorPinA, abs(controlSignal));
                 analogWrite(motorPinB, 0);
             }
-            else if (controlSignal > 0) {
+            else if (controlSignal < 0) {
                 analogWrite(motorPinA, 0);
                 analogWrite(motorPinB, abs(controlSignal));
             }
@@ -149,14 +171,14 @@ void NocMotor::RunMotorControl() {
                 digitalWrite(motorPinB, LOW);
             }
         }
-        else {
+        else if (direction == -1) {
             if (controlSignal > 0) {
                 analogWrite(motorPinA, 0);
                 analogWrite(motorPinB, abs(controlSignal));
             }
             else if (controlSignal < 0) {
-                analogWrite(motorPinB, abs(controlSignal));
-                analogWrite(motorPinA, 0);
+                analogWrite(motorPinA, abs(controlSignal));
+                analogWrite(motorPinB, 0);
             }
             else {
                 digitalWrite(motorPinA, LOW);

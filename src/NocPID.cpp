@@ -29,9 +29,9 @@ void NocPID::calculate()
     }
 
     if (lastTime == 0) {
-      lastTime = millis();  // If PID is reset then make sure there is no big difference in delta time making a fuss
+      lastTime = micros();  // If PID is reset then make sure there is no big difference in delta time making a fuss
     }
-    unsigned int currentTime = millis();            // possible with millis if fast frequency???
+    unsigned int currentTime = micros();            // possible with millis if fast frequency???
     float deltaTime = (currentTime - lastTime);      // Time difference in milliseconds
     lastTime = currentTime;
     
@@ -40,11 +40,20 @@ void NocPID::calculate()
     P = kp * error;
     
     if (!(abs(output) >= maxOutputAbs)) {
-        cumError += error * deltaTime / 1000;
+        cumError += error * deltaTime / 1000000;
+        if (isnan(cumError)) {
+            cumError = 0;
+        }
         I = ki * cumError;
     }
 
-    D = kp * kd * ((input - lastInput) / deltaTime);
+    // D = kp * kd * ((input - lastInput) / deltaTime);
+    D = kd * ((error - lastError) / (deltaTime / 1000000));
+    if (isnan(D)) {
+        D = 0;
+    }
+    D = alphaD * D + (1 - alphaD) * lastD;    // Low-pass filter
+    lastD = D;
     
     float tempOutput = P + I + D;
     

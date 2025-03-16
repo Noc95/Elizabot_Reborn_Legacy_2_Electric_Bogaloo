@@ -20,22 +20,23 @@
 
 // TODO: calibrate angle at start?
 
-NocMotor leftMotor(900, 4, 5, 9, 10, -1);
+NocMotor leftMotor(13, 4, 5, 10, 9, 1);
+NocMotor rightMotor(13, 2, 3, 8, 7, -1);
 
 // Angle PID. Input = angle, output = motor signal
 // P~40, I~230, D~3-5
-float angle_kp = 40;    
-float angle_ki = 235;
-float angle_kd = 10;
-float angleMaxOutputAbs = 1000;
+float angle_kp = 0.3;
+float angle_ki = 10;
+float angle_kd = 0.0001;
+float angleMaxOutputAbs = 13; // Max RPS of motors
 NocPID anglePID(angle_kp, angle_ki, angle_kd, angleMaxOutputAbs);
 
-// Correction PID. Input = motor signal, output = angle
-float correction_kp = 0.01;
-float correction_ki = 2;
-float correction_kd = 0;
-float correctionMaxOutputAbs = 10;
-NocPID correctionPID(correction_kp, correction_ki, correction_kd, correctionMaxOutputAbs);
+// position PID. Input = motor signal, output = angle
+float position_kp = 1;
+float position_ki = 0;
+float position_kd = 0;
+float positionMaxOutputAbs = 10;  // Max angle input to the anglePID
+NocPID positionPID(position_kp, position_ki, position_kd, positionMaxOutputAbs);
 
 NocIMU imu;
 
@@ -60,20 +61,21 @@ void handleEncoderInterrupt() {
 }
 
 void motor1Interrupt() {
-  handleEncoderInterrupt();
+  // handleEncoderInterrupt();
+  leftMotor.handleEncoderInterrupt();
 }
 
 void motor2Interrupt() {
-  // motor2.handleEncoderInterrupt();
+  rightMotor.handleEncoderInterrupt();
 }
 
 
 
 void setup(void) {
 
-  Serial.begin(115200);
-  while (!Serial)
-    delay(10); 
+  // Serial.begin(115200);
+  // while (!Serial)
+  //   delay(10); 
 
   pinMode(MOTOR_1_PIN_A, OUTPUT);
   pinMode(MOTOR_1_PIN_B, OUTPUT);
@@ -89,12 +91,16 @@ void setup(void) {
   imu.calibrateIMU();
 
   anglePID.enabled = false;
-  correctionPID.enabled = false;
+  positionPID.enabled = false;
 
   leftMotor.init();
   leftMotor.enabled = true;
 
+  rightMotor.init();
+  rightMotor.enabled = true;
+
   attachInterrupt(digitalPinToInterrupt(leftMotor.encoderPinA), motor1Interrupt, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(rightMotor.encoderPinA), motor2Interrupt, CHANGE);
 
   delay(1000);
 }
@@ -195,6 +201,7 @@ void elizabot() {
 
   imu.elizabotCalculateAngle();
   leftMotor.calculateRotationSpeed();
+  rightMotor.calculateRotationSpeed();
 
 
   // Sample time calculations  
@@ -202,62 +209,64 @@ void elizabot() {
   if ((currentSampleTime - lastSampleTime) > sampleTime) {
     lastSampleTime = micros();
 
-    // leftMotor.PIDsetPoint = 5;
-    leftMotor.RunMotorControl();
-  
+
     // --- Get data from human input ---
     anglePID.setPoint = 0;
     
-    // --- Activate PID when standing up ---
+
+    // --- Activate PIDs when standing up ---
     if (!anglePID.enabled) {
       if (abs(imu.angle) < 5) {
         anglePID.enabled = true;
+        leftMotor.enabled = true;
+        rightMotor.enabled = true;
       }
-    } //  Deactivate PID when falling down
+    } //  Deactivate PIDs when falling down
     else {
       if (abs(imu.angle) > 50) {
         anglePID.enabled = false;
-        correctionPID.enabled = false;
+        positionPID.enabled = false;
+        // leftMotor.enabled = false;
+        // rightMotor.enabled = false;
       }
     }
 
-    // Activate correction PID if no user input
+
+    // --- Activate position PID if no user input ---
     // if (anglePID.setPoint == 0) {
-    //   correctionPID.enabled = true;
+    //   positionPID.enabled = true;
     // }
     
-    // --- Calculate control signal with PID ---
-    if (correctionPID.enabled) {
-      anglePID.input = correctionPID.output;
+
+    // --- If position PID active -> Hold position ---
+    if (positionPID.enabled) {
+      anglePID.setPoint = positionPID.output;
     }
-    else {
-      anglePID.input = imu.angle;
-    }
-    
-    // Calculate motor signal
+
+
+    // --- Angle PID input and calculations ---
+    anglePID.input = imu.angle;
     anglePID.calculate();
 
-    // Calculate angle correction
-    // correctionPID.input = anglePID.output;
-    // correctionPID.calculate();
-    
-    // DEBUG
+
+    // --- Motor input and calculations ---
+    leftMotor.PIDsetPoint = anglePID.output;
+    rightMotor.PIDsetPoint = anglePID.output;
+    leftMotor.RunMotorControl();
+    rightMotor.RunMotorControl();
+
+    // Serial.println(leftMotor.enabled);
+
+
+    // --- DEBUG ---
     // Serial.print("  Angle: ");
-    // Serial.print(imu.angle);
+    // Serial.println(imu.angle);
     // Serial.print("  angle PID output: ");
-    // Serial.print(anglePID.output);
+    // Serial.println(anglePID.output);
     // Serial.print("  corr PID output: ");
-    // Serial.print(correctionPID.output);
+    // Serial.print(positionPID.output);
     // Serial.println();
   
-    // --- Send control signal and turn signal to the motors ---
-    // if (anglePID.enabled) {
-    //   motorSignalMixer(anglePID.output, 0);
-    // }
-    // else {
-    //   sendMotorSignals(0, 0);
-    // }
-
   }
 }
 
@@ -274,9 +283,7 @@ void timeBenchmark() {
 
     // --- Code to benchmark here ---
 
-    // elizabot();
-    // leftMotor.calculateRotationSpeed();
-    
+    elizabot();
 
     // ------------------------------
   }
@@ -304,68 +311,13 @@ void timeBenchmark() {
 
 // --------------------------------------------------------
 
-float testCount = 0;
 
 void loop() {
 
   elizabot();
-
-  testCount++;
-
-  
-  // if (testCount >= 2000) {
-  //   testCount = 0;
-  //   if (leftMotor.PIDsetPoint == -10) {
-  //     leftMotor.PIDsetPoint = 10;
-  //   }
-  //   else {
-  //     leftMotor.PIDsetPoint = -10;
-  //   }
-  // }
-
-  leftMotor.PIDsetPoint = 10 * sin(2*PI*(1.0/3.0)*millis()/1000) + 5 * sin(PI*(1.0/3.0)*millis()/1000);
-
-  // delay(2);
-
-  // leftMotor.RunMotorControl();
-
-  // leftMotor.calculateRotationSpeed();
-  Serial.println(leftMotor.rotationSpeed);
-  // Serial.println(leftMotor.PIDsetPoint);
-
-  // counter++;
-
-  // if (counter >= 500) {
-  //   Serial.println(motor1.rotationSpeed);
-  //   counter = 0;
-  // }
-  // if (motor1.encoderCount == 5) {
-  //   digitalRead(motor1.encoderPinA);
-  // }
-
-  // elizabot();
+  // leftMotor.PIDsetPoint = 1;
   // timeBenchmark();
-
-  // imu.kalmanUpdate();
-  // imu.elizabotCalculateAngle();
-
-  // Serial.print(imu.angle);
-  // Serial.print("  ");
-  // Serial.print(imu.angle2);
-  // Serial.println();
 } 
 
-/*
-
-int encoderA = 9;
-int encoderB = 10;
-int encoderCount = 0;
-  pinMode(9, INPUT);
-  pinMode(10, INPUT);
-  attachInterrupt(digitalPinToInterrupt(9), handleEncoderInterrupt, CHANGE);
-  
-  rps = ((encoderCount-lastValue)/180.0)*500;
-  lastValue = encoderCount;
-
-  
-  */
+// I and D in motor PIDs not working when input is from anglePID?????
+// WHAT GIVES?
