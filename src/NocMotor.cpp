@@ -141,20 +141,7 @@ void NocMotor::calculateMotorPID() {
 
 void NocMotor::RunMotorControl() {
     
-    // if (enabled == false) {
-    //     lastTime = micros();
-    // }
-    // else {
-    // PIDlastTime = PIDcurrentTime;
-    // // }
-    // PIDcurrentTime = micros();
-    // unsigned int deltaTime = PIDcurrentTime - PIDlastTime;
-
     calculateMotorPID();
-
-    // Serial.print(PIDsetPoint);
-    // Serial.print(" ");
-    // Serial.println(controlSignal);
 
     if (enabled == true) {
         if (direction == 1) {

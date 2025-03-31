@@ -3,8 +3,16 @@
 #include <NocIMU.h>
 #include <NocMotor.h>
 
-// #include "hardware/pwm.h"
+#include <SPI.h>
+#include <WiFiNINA.h>
 
+// #include "hardware/pwm.h"
+// using namespace websockets;
+
+// const char* ssid = "Elizabot";
+// const char* password = "12345678";
+
+// WebSocketsServer webSocket(81); // Plain WebSockets (non-secure)
 
 // --------------------------------------------------------
 
@@ -25,18 +33,29 @@ NocMotor rightMotor(13, 2, 3, 8, 7, -1);
 
 // Angle PID. Input = angle, output = motor signal
 // P~40, I~230, D~3-5
-float angle_kp = 0.3;
-float angle_ki = 10;
-float angle_kd = 0.0001;
+// 0.2 2.0 0.00015 Slow but quite good
+float angle_kp = 0.2;    // 0.15
+float angle_ki = 2.0;     // 5.5
+float angle_kd = 0.00015; // 0.00005
 float angleMaxOutputAbs = 13; // Max RPS of motors
 NocPID anglePID(angle_kp, angle_ki, angle_kd, angleMaxOutputAbs);
 
+float defaultRestAngle = 1.5;  // Hardcoded "tuning" of where the resting point of the standing robot is
+
 // position PID. Input = motor signal, output = angle
-float position_kp = 1;
+float velocity_kp = 0.15;
+float velocity_ki = 0.1;
+float velocity_kd = 0;
+float velocityMaxOutputAbs = 2;  // Max angle input to the anglePID
+NocPID velocityPID(velocity_kp, velocity_ki, velocity_kd, velocityMaxOutputAbs);
+
+// position PID. Input = motor signal, output = angle
+float position_kp = 0.00001;
 float position_ki = 0;
 float position_kd = 0;
-float positionMaxOutputAbs = 10;  // Max angle input to the anglePID
+float positionMaxOutputAbs = 2;  // Max angle input to the anglePID
 NocPID positionPID(position_kp, position_ki, position_kd, positionMaxOutputAbs);
+bool positionPIDhasActivated = false;
 
 NocIMU imu;
 
@@ -45,7 +64,7 @@ unsigned long lastSampleTime = 0;
 unsigned long currentSampleTime = 0;
 
 // ---------------------------------------------------------
-
+/*
 void handleEncoderInterrupt() {
 
   // bool pinAState = gpio_get(motor1.encoderPinA);
@@ -59,7 +78,7 @@ void handleEncoderInterrupt() {
   // delay(1);
   // testcount++;
 }
-
+*/
 void motor1Interrupt() {
   // handleEncoderInterrupt();
   leftMotor.handleEncoderInterrupt();
@@ -68,6 +87,8 @@ void motor1Interrupt() {
 void motor2Interrupt() {
   rightMotor.handleEncoderInterrupt();
 }
+
+
 
 
 
@@ -211,13 +232,16 @@ void elizabot() {
 
 
     // --- Get data from human input ---
-    anglePID.setPoint = 0;
+    anglePID.setPoint = defaultRestAngle;
     
 
     // --- Activate PIDs when standing up ---
     if (!anglePID.enabled) {
       if (abs(imu.angle) < 5) {
         anglePID.enabled = true;
+
+        velocityPID.enabled = true;
+
         leftMotor.enabled = true;
         rightMotor.enabled = true;
       }
@@ -225,7 +249,7 @@ void elizabot() {
     else {
       if (abs(imu.angle) > 50) {
         anglePID.enabled = false;
-        positionPID.enabled = false;
+        velocityPID.enabled = false;
         // leftMotor.enabled = false;
         // rightMotor.enabled = false;
       }
@@ -239,8 +263,12 @@ void elizabot() {
     
 
     // --- If position PID active -> Hold position ---
-    if (positionPID.enabled) {
-      anglePID.setPoint = positionPID.output;
+    if (velocityPID.enabled) {
+      velocityPID.setPoint = 0;
+      velocityPID.input = (leftMotor.rotationSpeed + rightMotor.rotationSpeed) / 2; // Take the average speed of both motors as input
+      velocityPID.calculate();
+
+      anglePID.setPoint = -velocityPID.output + defaultRestAngle;
     }
 
 
@@ -260,11 +288,11 @@ void elizabot() {
 
     // --- DEBUG ---
     // Serial.print("  Angle: ");
-    // Serial.println(imu.angle);
-    // Serial.print("  angle PID output: ");
-    // Serial.println(anglePID.output);
-    // Serial.print("  corr PID output: ");
-    // Serial.print(positionPID.output);
+    // Serial.print(imu.angle);
+    // Serial.print("  velocity PID output: ");
+    // Serial.print(velocityPID.output);
+    // Serial.print("  Angle PID output: ");
+    // Serial.print(anglePID.output);
     // Serial.println();
   
   }

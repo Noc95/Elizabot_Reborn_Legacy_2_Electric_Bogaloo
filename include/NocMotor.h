@@ -52,9 +52,9 @@ private:
 
     void calculateMotorPID();
 
-    float kp = 25;  // 50 ? 45 ? 36
-    float ki = 400;  // 70 ? 120 ? 500
-    float kd = 0;
+    float kp = 90;  // 25!
+    float ki = 400;  // 400
+    float kd = 0.001;
 
     float alphaD = 0.1; // Filter for the D part of the PID controller
     float lastD = 0;
