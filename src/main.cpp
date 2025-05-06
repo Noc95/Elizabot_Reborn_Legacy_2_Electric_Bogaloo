@@ -6,13 +6,22 @@
 #include <SPI.h>
 #include <WiFiNINA.h>
 
-// #include "hardware/pwm.h"
-// using namespace websockets;
+#include "pico/multicore.h"
 
-// const char* ssid = "Elizabot";
-// const char* password = "12345678";
+
+const char* ssid = "Elizabot";
+const char* password = "12345678";
 
 // WebSocketsServer webSocket(81); // Plain WebSockets (non-secure)
+
+char wifiDataBuffer[32000];
+char *endOfBuffer = wifiDataBuffer + sizeof(wifiDataBuffer) - 1;
+char *writePointer = wifiDataBuffer;
+char *readPointer = wifiDataBuffer;
+
+WiFiServer server(80); // A server on port 80
+WiFiClient client;
+int wifiStatus = WL_IDLE_STATUS;
 
 // --------------------------------------------------------
 
@@ -88,8 +97,92 @@ void motor2Interrupt() {
   rightMotor.handleEncoderInterrupt();
 }
 
+void check_client_connection() {
+  // Serial.println(client);
+  if (client) {
+    if (!client.connected()) {
+      client.stop();
+      client = WiFiClient(); // Re-init blank client
+    }
+  }
 
+  if (!client) {
+    client = server.available();
+    // Serial.println("New client (maybe) assigned");
+  }
 
+}
+
+void gatherWiFiData() {
+  // float testFloat = 100.0;
+
+  *writePointer = char('D');
+  writePointer += 1;
+  
+  memcpy(writePointer, &imu.angle, sizeof(float));
+  writePointer += sizeof(float);
+
+  memcpy(writePointer, &anglePID.setPoint, sizeof(float));
+  writePointer += sizeof(float);
+
+  memcpy(writePointer, &imu.angle, sizeof(float));
+  writePointer += sizeof(float);
+
+  if (writePointer > endOfBuffer) {
+    writePointer = wifiDataBuffer;
+  }
+}
+
+void sendWiFiData() {
+
+  check_client_connection();
+
+  if (client && client.connected()) {
+
+    // Serial.println("y");
+    int bytesThreshold = 256;
+    
+    int bytesSent;
+    
+    if (readPointer < writePointer && writePointer - readPointer >= bytesThreshold) {
+      bytesSent = client.write(readPointer, writePointer-readPointer); // Send data until it reaches write
+    }
+    else if (readPointer < writePointer && writePointer - readPointer < bytesThreshold) {
+      bytesSent = 0;
+    }
+    else if (readPointer == writePointer) {   // If read has cought up to write
+      bytesSent = 0;
+    }
+    else if (readPointer > writePointer) {
+      bytesSent = client.write(readPointer, endOfBuffer-readPointer+1); // Read from dataBuffer
+    }
+
+    readPointer += bytesSent;
+
+    if (readPointer > endOfBuffer)
+      readPointer = wifiDataBuffer;
+    
+    // if (bytesSent != 0)
+    //   Serial.println(bytesSent);
+  }
+  else {
+    // Serial.println("n");
+    // client.stop();
+    // check_client_connection();
+  }
+}
+
+void handleWiFiCommunication() {
+  gatherWiFiData();
+  sendWiFiData();
+}
+
+void core1_function() {
+  Serial.println("Core 1 activated");
+  while (true) {
+      handleWiFiCommunication();
+  }
+}
 
 
 void setup(void) {
@@ -122,6 +215,17 @@ void setup(void) {
 
   attachInterrupt(digitalPinToInterrupt(leftMotor.encoderPinA), motor1Interrupt, CHANGE);
   attachInterrupt(digitalPinToInterrupt(rightMotor.encoderPinA), motor2Interrupt, CHANGE);
+
+  // --- WiFi Setup ---
+  wifiStatus = WiFi.beginAP(ssid, password);
+  delay(1000);
+  server.begin();
+
+  // Serial.print(WiFi.localIP());
+  // WiFi.
+
+  // multicore_launch_core1(core1_function);
+
 
   delay(1000);
 }
@@ -212,7 +316,6 @@ void motorSignalMixer(int controlSignal, int turnSignal) {
   sendMotorSignals(motor1Signal, motor2Signal);
   
 }
-
 
 
 // --- Main function ------------------------------------------
@@ -312,6 +415,7 @@ void timeBenchmark() {
     // --- Code to benchmark here ---
 
     elizabot();
+    // handleWiFiCommunication();
 
     // ------------------------------
   }
@@ -343,7 +447,9 @@ void timeBenchmark() {
 void loop() {
 
   elizabot();
-  // leftMotor.PIDsetPoint = 1;
+
+  handleWiFiCommunication();
+
   // timeBenchmark();
 } 
 
