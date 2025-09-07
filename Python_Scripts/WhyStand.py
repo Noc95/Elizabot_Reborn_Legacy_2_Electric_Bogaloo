@@ -30,24 +30,26 @@ win.keyPressEvent = keyPressEvent
 
 angle_curve = plot.plot(pen='r')
 angle_setpoint_curve = plot.plot(pen='g')
-m1_speed_curve = plot.plot(pen='b')
 
-m2_speed_curve = plot.plot(pen='y', label="X Unfiltered")
-m2_speed_setpoint_curve = plot.plot(pen='w')
-m1_speed_setpoint_curve = plot.plot(pen='c')
+leftMotor_speed_curve = plot.plot(pen='b')
+leftMotor_speed_setpoint_curve = plot.plot(pen='c')
 
-motor_1_curve = plot.plot(pen=pg.mkPen(color=(255, 165, 0)))  # Orange
-motor_2_curve = plot.plot(pen=pg.mkPen(color=(0, 128, 128)))  # Teal
-motor_3_curve = plot.plot(pen=pg.mkPen(color=(148, 0, 211)))  # Violet
-motor_4_curve = plot.plot(pen=pg.mkPen(color=(50, 205, 50)))  # Lime Green
+rightMotor_speed_curve = plot.plot(pen='y', label="X Unfiltered")
+rightMotor_speed_setpoint_curve = plot.plot(pen='w')
+
+# motor_1_curve = plot.plot(pen=pg.mkPen(color=(255, 165, 0)))  # Orange
+# motor_2_curve = plot.plot(pen=pg.mkPen(color=(0, 128, 128)))  # Teal
+# motor_3_curve = plot.plot(pen=pg.mkPen(color=(148, 0, 211)))  # Violet
+# motor_4_curve = plot.plot(pen=pg.mkPen(color=(50, 205, 50)))  # Lime Green
 
 angle_dataList = []
 angle_setpoint_dataList = []
-m1_speed_dataList = []
 
-m1_speed_setpoint_dataList = [0]
-m2_speed_dataList = [0]
-m2_speed_setpoint_dataList = [0]
+leftMotor_speed_dataList = []
+leftMotor_speed_setpoint_dataList = []
+
+rightMotor_speed_dataList = [0]
+rightMotor_speed_setpoint_dataList = [0]
 
 motor_1 = []
 motor_2 = []
@@ -80,8 +82,14 @@ def fetch_data():
                         data_cunks = raw_data.split(b'D')
                         for cunk in data_cunks:
                             
-                            if len(cunk) == 4:
-                                angle_dataList.append(struct.unpack('<f', cunk)[0])
+                            if len(cunk) == 4*4:
+                                data = struct.unpack('<4f', cunk)
+                                
+                                angle_dataList.append(data[0])
+                                angle_setpoint_dataList.append(data[1])
+
+                                leftMotor_speed_setpoint_dataList.append(data[2])
+                                leftMotor_speed_dataList.append(data[3])
 
                             # if len(cunk) == 24:
                             #     data = struct.unpack('<4i4h', cunk)
@@ -92,15 +100,15 @@ def fetch_data():
 
                             #     angle_dataList.append(scaled_data[0])
                             #     angle_setpoint_dataList.append(scaled_data[1])
-                            #     # m1_speed_dataList.append(scaled_data[2])
+                            #     # leftMotor_speed_dataList.append(scaled_data[2])
 
-                            #     m1_speed_setpoint_dataList.append(scaled_data[2])
-                            #     m2_speed_dataList.append(scaled_data[3])
-                            #     # m2_speed_setpoint_dataList.append(scaled_data[4])
+                            #     leftMotor_speed_setpoint_dataList.append(scaled_data[2])
+                            #     rightMotor_speed_dataList.append(scaled_data[3])
+                            #     # rightMotor_speed_setpoint_dataList.append(scaled_data[4])
 
-                            #     # m1_speed_setpoint_dataList.append(m1_speed_setpoint_dataList[-1] * alpha + angle_dataList[-1] * (1-alpha))
-                            #     # m2_speed_dataList.append(m2_speed_dataList[-1] * alpha + angle_setpoint_dataList[-1] * (1-alpha))
-                            #     # m2_speed_setpoint_dataList.append(m2_speed_setpoint_dataList[-1] * alpha + m1_speed_dataList[-1] * (1-alpha))
+                            #     # leftMotor_speed_setpoint_dataList.append(leftMotor_speed_setpoint_dataList[-1] * alpha + angle_dataList[-1] * (1-alpha))
+                            #     # rightMotor_speed_dataList.append(rightMotor_speed_dataList[-1] * alpha + angle_setpoint_dataList[-1] * (1-alpha))
+                            #     # rightMotor_speed_setpoint_dataList.append(rightMotor_speed_setpoint_dataList[-1] * alpha + leftMotor_speed_dataList[-1] * (1-alpha))
                                 
                             #     motor_1.append(data[4])
                             #     motor_2.append(data[5])
@@ -112,11 +120,11 @@ def fetch_data():
                             try:
                                 angle_dataList.pop(0)
                                 angle_setpoint_dataList.pop(0)
-                                # m1_speed_dataList.pop(0)
+                                # leftMotor_speed_dataList.pop(0)
 
-                                m1_speed_setpoint_dataList.pop(0)
-                                m2_speed_dataList.pop(0)
-                                # m2_speed_setpoint_dataList.pop(0)
+                                leftMotor_speed_setpoint_dataList.pop(0)
+                                rightMotor_speed_dataList.pop(0)
+                                # rightMotor_speed_setpoint_dataList.pop(0)
 
                                 motor_1.pop(0)
                                 motor_2.pop(0)
@@ -130,19 +138,21 @@ def fetch_data():
 
 def update_plot():
     """Update the plot with new data"""
-    # angle_curve.setData(angle_dataList)
-    # angle_setpoint_curve.setData(angle_setpoint_dataList)
-    # m1_speed_curve.setData(m1_speed_dataList)
 
-    # m2_speed_curve.setData(m1_speed_setpoint_dataList)
-    # m2_speed_setpoint_curve.setData(m2_speed_dataList)
-    # m1_speed_setpoint_curve.setData(m2_speed_setpoint_dataList)
+    
+
+    # rightMotor_speed_curve.setData(leftMotor_speed_setpoint_dataList)
+    # rightMotor_speed_setpoint_curve.setData(rightMotor_speed_dataList)
+    # leftMotor_speed_setpoint_curve.setData(rightMotor_speed_setpoint_dataList)
 
     # motor_1_curve.setData(motor_1)
     # motor_2_curve.setData(motor_2)
     # motor_3_curve.setData(motor_3)
     # motor_4_curve.setData(motor_4)
-    angle_curve.setData(angle_dataList)
+    # angle_curve.setData(angle_dataList)
+    # angle_setpoint_curve.setData(angle_setpoint_dataList)
+    leftMotor_speed_curve.setData(leftMotor_speed_dataList)
+    leftMotor_speed_setpoint_curve.setData(leftMotor_speed_setpoint_dataList)
 
 
 if __name__ == "__main__": 

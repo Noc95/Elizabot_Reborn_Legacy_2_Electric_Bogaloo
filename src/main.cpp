@@ -125,7 +125,10 @@ void gatherWiFiData() {
   memcpy(writePointer, &anglePID.setPoint, sizeof(float));
   writePointer += sizeof(float);
 
-  memcpy(writePointer, &imu.angle, sizeof(float));
+  memcpy(writePointer, &leftMotor.PIDsetPoint, sizeof(float));
+  writePointer += sizeof(float);
+
+  memcpy(writePointer, &leftMotor.rotationSpeed, sizeof(float));
   writePointer += sizeof(float);
 
   if (writePointer > endOfBuffer) {
@@ -196,10 +199,10 @@ void setup(void) {
   pinMode(MOTOR_2_PIN_A, OUTPUT);
   pinMode(MOTOR_2_PIN_B, OUTPUT);
 
-  digitalWrite(MOTOR_1_PIN_A, LOW);
-  digitalWrite(MOTOR_1_PIN_B, LOW);
-  digitalWrite(MOTOR_2_PIN_A, LOW);
-  digitalWrite(MOTOR_2_PIN_B, LOW);
+  analogWrite(MOTOR_1_PIN_A, 0);
+  analogWrite(MOTOR_1_PIN_B, 0);
+  analogWrite(MOTOR_2_PIN_A, 0);
+  analogWrite(MOTOR_2_PIN_B, 0);
 
   imu.initializeIMU();
   imu.calibrateIMU();

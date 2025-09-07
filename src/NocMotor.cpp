@@ -140,41 +140,50 @@ void NocMotor::calculateMotorPID() {
 }
 
 void NocMotor::RunMotorControl() {
-    
+    Serial.println(controlSignal);
     calculateMotorPID();
 
-    if (enabled == true) {
-        if (direction == 1) {
-            if (controlSignal > 0) {
-                analogWrite(motorPinA, abs(controlSignal));
-                analogWrite(motorPinB, 0);
-            }
-            else if (controlSignal < 0) {
-                analogWrite(motorPinA, 0);
-                analogWrite(motorPinB, abs(controlSignal));
-            }
-            else {
-                digitalWrite(motorPinA, LOW);
-                digitalWrite(motorPinB, LOW);
-            }
+    if (enabled == false) {
+        analogWrite(motorPinA, 0);
+        analogWrite(motorPinB, 0);
+        return;
+    }
+
+    // if (enabled == true) {
+    if (direction == 1) {
+        if (controlSignal > 0) {
+            analogWrite(motorPinA, abs(controlSignal));
+            analogWrite(motorPinB, 0);
         }
-        else if (direction == -1) {
-            if (controlSignal > 0) {
-                analogWrite(motorPinA, 0);
-                analogWrite(motorPinB, abs(controlSignal));
-            }
-            else if (controlSignal < 0) {
-                analogWrite(motorPinA, abs(controlSignal));
-                analogWrite(motorPinB, 0);
-            }
-            else {
-                digitalWrite(motorPinA, LOW);
-                digitalWrite(motorPinB, LOW);
-            }
+        else if (controlSignal < 0) {
+            analogWrite(motorPinA, 0);
+            analogWrite(motorPinB, abs(controlSignal));
+        }
+        else {
+            analogWrite(motorPinA, 0);
+            analogWrite(motorPinB, 0);
         }
     }
-    else {
-        digitalWrite(motorPinA, LOW);
-        digitalWrite(motorPinB, LOW);
+    else if (direction == -1) {
+        if (controlSignal > 0) {
+            analogWrite(motorPinA, 0);
+            analogWrite(motorPinB, abs(controlSignal));
+        }
+        else if (controlSignal < 0) {
+            analogWrite(motorPinA, abs(controlSignal));
+            analogWrite(motorPinB, 0);
+        }
+        else {
+            analogWrite(motorPinA, 0);
+            analogWrite(motorPinB, 0);
+        }
+    // }
     }
+    return;
+    // else {
+    //     digitalWrite(motorPinA, HIGH);
+    //     digitalWrite(motorPinB, HIGH);
+    //     // analogWrite(motorPinA, 0);
+    //     // analogWrite(motorPinB, 0);
+    // }
 }
